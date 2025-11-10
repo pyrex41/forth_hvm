@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-11-10T21:38:56.332Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Setup Development Environment",
+			"complexityScore": 3,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "This task involves basic installation and file creation with no complex algorithms or dependencies, making it straightforward with minimal effort and testing."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Implement Core Primitives and Heap Management",
+			"complexityScore": 7,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down into subtasks for defining primitives, implementing heap allocation, and adding garbage collection.",
+			"reasoning": "Involves defining multiple constants and words, implementing a circular buffer heap and mark-sweep GC, which requires careful memory management and algorithm design, increasing technical challenges and testing needs."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement Substitution Map",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Split into subtasks for creating the mapping structure and implementing substitution logic with affine checks.",
+			"reasoning": "Requires creating a hash-like map in Forth, handling post-parse linking, and enforcing affine variables, which adds moderate complexity in data structures and error handling."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Build Parser for IC Grammar",
+			"complexityScore": 8,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Divide into subtasks for tokenization, parsing each term type (LAM, APP, etc.), handling global vars, and outputting to dict.",
+			"reasoning": "Recursive descent parsing for multiple term types is technically challenging, with dependencies on prior tasks, extensive edge case testing, and integration with Forth dict."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Implement Book Loading and Global Linking",
+			"complexityScore": 6,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Separate into subtasks for loading and parsing books, and implementing global linking.",
+			"reasoning": "Extends parser with arity handling and efficient dict mappings, requiring moderate effort in file I/O and linking logic, with testing for correctness."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implement Reducer and WHNF Loop",
+			"complexityScore": 8,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break into subtasks for defining WHNF loop, implementing IS-VALUE? checks, and adding interpreted mode.",
+			"reasoning": "Core evaluation logic with looping until reduction, involving stack simulation and termination checks, high in complexity due to potential infinite loops and dependency on interaction rules."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Implement Interaction Rules",
+			"complexityScore": 9,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Create subtasks for each major interaction rule (e.g., APP-LAM, DUP-SUP) and adding compiled mode fast-paths.",
+			"reasoning": "Porting 10-15 rules from external spec, each with specific logic and edge cases, plus compiled optimizations, makes this highly complex with extensive unit testing."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Implement Collapse and Normalization",
+			"complexityScore": 6,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Split into subtasks for implementing collapse rules and adding renamer/pretty-printing.",
+			"reasoning": "Involves flattening terms and string output with renaming, moderate complexity in algorithm implementation and matching baselines."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Build CLI and Modes",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Divide into subtasks for argument parsing and implementing run/serve modes with stats.",
+			"reasoning": "CLI development with modes and performance stats is moderately complex, requiring argument handling and socket programming, with concurrency testing."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Integration Testing and Benchmarking",
+			"complexityScore": 7,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break into subtasks for creating test scripts, building Docker setup, and implementing benchmarking.",
+			"reasoning": "Involves scripting for comparison with HVM3, Docker configuration, and performance measurement, high in integration effort and ensuring thresholds."
+		}
+	]
+}

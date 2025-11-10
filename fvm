@@ -1,0 +1,5 @@
+#!/bin/bash
+# ForthVM launcher script
+
+cd "$(dirname "$0")/src"
+gforth fvm.fs -e "MAIN bye" "$@"
