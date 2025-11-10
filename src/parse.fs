@@ -102,6 +102,7 @@ VARIABLE CURRENT-COL
 11 CONSTANT TOK-HASH
 12 CONSTANT TOK-STAR
 13 CONSTANT TOK-NUMBER
+14 CONSTANT TOK-DOT
 
 \ Token buffer (stores current token text)
 CREATE TOKEN-BUF 256 ALLOT
@@ -145,12 +146,6 @@ VARIABLE TOKEN-TYPE
   PEEK-CHAR
 
   \ Check for single-character tokens
-  DUP 206 = IF  \ λ (UTF-8: 0xCE 0xBB, but simplified as 0xCE for now)
-    DROP NEXT-CHAR DROP  \ Consume λ
-    NEXT-CHAR DROP        \ Consume second byte
-    TOK-LAMBDA 0 0 EXIT
-  THEN
-
   DUP 40 = IF  \ (
     DROP NEXT-CHAR DROP
     TOK-LPAREN 0 0 EXIT
@@ -201,6 +196,11 @@ VARIABLE TOKEN-TYPE
     TOK-STAR 0 0 EXIT
   THEN
 
+  DUP 46 = IF  \ . (use as lambda)
+    DROP NEXT-CHAR DROP
+    TOK-LAMBDA 0 0 EXIT
+  THEN
+
   \ Check for identifier
   DUP IS-ALPHA? OVER 64 = OR IF  \ letter or @
     DROP
@@ -223,26 +223,120 @@ VARIABLE TOKEN-TYPE
   TOK-EOF 0 0
 ;
 
-\ Parser stubs (minimal subset first: LAM, APP, VAR)
+\ Forward declaration for recursive parsing
+DEFER PARSE-TERM
+
+\ Parse variable reference
+: PARSE-VAR ( c-addr u -- term )
+  \ Look up variable in substitution map
+  SUBST-GET DUP 0= IF
+    DROP
+    S" Undefined variable" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Create VAR term: VAR has val=location
+  \ TAG-VAR 0 location PACK-TERM
+  TAG-VAR 0 ROT PACK-TERM
+;
+
+\ Parse lambda: λx body
 : PARSE-LAM ( -- term )
-  \ TODO: parse λx.body
-  0
+  \ Expect identifier for parameter name
+  NEXT-TOKEN ( type addr len )
+  DUP TOK-IDENT <> IF
+    2DROP DROP
+    S" Expected identifier after λ" PARSE-ERROR
+    0 EXIT
+  THEN
+  DROP \ Drop type, leaves: ( addr len )
+
+  \ Allocate location for this binding
+  3 ALLOC ( addr len loc )
+
+  \ Store binding: name -> location
+  >R 2DUP R> ( addr len addr len loc )
+  SUBST-PUT ( addr len )
+  2DROP ( -- )
+
+  \ Parse body term
+  PARSE-TERM ( body-term )
+
+  \ Allocate LAM term in heap (needs 1 cell to store body pointer)
+  1 ALLOC ( body-term lam-loc )
+  DUP >R ( body-term lam-loc | R: lam-loc )
+  ! ( | R: lam-loc )
+
+  \ Create LAM term: TAG-LAM lab=0 val=lam-addr
+  TAG-LAM 0 R> PACK-TERM ( lam-term )
+
+  \ TODO: Should unbind variable here (pop scope)
+  \ For now, just return the term
 ;
 
+\ Parse application: (f arg) or (@f arg)
 : PARSE-APP ( -- term )
-  \ TODO: parse (@f x) or (f x)
-  0
+  \ Already consumed '(' token
+
+  \ Parse function
+  PARSE-TERM ( fun-term )
+
+  \ Parse argument
+  PARSE-TERM ( fun-term arg-term )
+
+  \ Expect ')'
+  NEXT-TOKEN ( fun arg type addr len )
+  DUP TOK-RPAREN <> IF
+    2DROP DROP 2DROP
+    S" Expected ')' after application" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( fun arg )
+
+  \ Allocate APP term in heap (needs 2 cells: fun and arg)
+  2 ALLOC ( fun arg app-loc )
+  DUP >R ( fun arg app-loc | R: app-loc )
+  TUCK ! ( fun app-loc | R: app-loc )
+  CELL+ ! ( | R: app-loc )
+
+  \ Create APP term: TAG-APP lab=0 val=app-addr
+  TAG-APP 0 R> PACK-TERM
 ;
 
-: PARSE-VAR ( -- term )
-  \ TODO: parse variable reference
-  0
-;
+\ Main term parser (dispatcher)
+:NONAME ( -- term )
+  NEXT-TOKEN ( type addr len )
 
-: PARSE-TERM ( -- term )
-  \ TODO: dispatcher for all term types
+  \ Check for EOF
+  DUP TOK-EOF = IF
+    2DROP DROP
+    S" Unexpected end of input" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Lambda: λx body
+  DUP TOK-LAMBDA = IF
+    2DROP DROP
+    PARSE-LAM EXIT
+  THEN
+
+  \ Application: (...)
+  DUP TOK-LPAREN = IF
+    2DROP DROP
+    PARSE-APP EXIT
+  THEN
+
+  \ Variable reference
+  DUP TOK-IDENT = IF
+    DROP ( addr len )
+    PARSE-VAR EXIT
+  THEN
+
+  \ Unknown token
+  2DROP DROP
+  S" Unexpected token" PARSE-ERROR
   0
-;
+; IS PARSE-TERM
 
 \ Test tokenizer
 : TEST-TOKENIZER ( -- )
@@ -297,9 +391,68 @@ VARIABLE TOKEN-TYPE
   THEN
 ;
 
+\ Test parser
+: TEST-PARSER ( -- )
+  ." Testing parser..." CR
+
+  \ Reset heap and substitution map
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 1: Parse identity function .x x (using '.' for lambda)
+  ." Test 1: Parse identity .x x... "
+  S" .x x" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-LAM = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset for next test
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 2: Parse application (f x)
+  ." Test 2: Parse application (f x)... "
+  \ First bind f and x to make them valid
+  S" f" 100 SUBST-PUT
+  S" x" 200 SUBST-PUT
+  S" (f x)" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-APP = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset for next test
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 3: Parse variable reference
+  ." Test 3: Parse variable x... "
+  S" x" 42 SUBST-PUT
+  S" x" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-VAR = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+;
+
 \ Test word
 : TEST-PARSE ( -- )
   ." Parse module loaded" CR
   ." Token types defined: EOF=" TOK-EOF . ." IDENT=" TOK-IDENT . ." LAMBDA=" TOK-LAMBDA . CR
   TEST-TOKENIZER
+  TEST-PARSER
 ;
