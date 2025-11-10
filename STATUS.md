@@ -36,7 +36,7 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | fvm.fs | ✅ Scaffold | 30 | Main entry point, loads all modules |
 | errors.fs | ✅ Functional | 45 | Error handling, DEBUG?, TRACE, ASSERT |
 | core.fs | ✅ Functional | 95 | Tags, bit-packing (tag:5b,lab:18b,val:41b), all tests pass |
-| heap.fs | 🟡 Partial | 112 | Allocation w/ wraparound ✅, GC TODO |
+| heap.fs | ✅ Functional | 218 | Allocation, wraparound, mark-sweep GC, 6/6 tests pass |
 | parse.fs | ⚠️ Stubs | 30 | Tokenizer and parsers TODO |
 | reduce.fs | ⚠️ Stubs | 25 | WHNF loop structure in place |
 | interact.fs | ⚠️ Stubs | 27 | Rule placeholders defined |
@@ -44,7 +44,7 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | book.fs | ⚠️ Stubs | 38 | Dictionary structure in place |
 | cli.fs | ⚠️ Stubs | 45 | Arg parsing and flags defined |
 
-**Total:** ~482 LOC (+117 from Task 3 progress)
+**Total:** ~588 LOC (+223 from Task 3)
 
 ## HVM3 Baseline
 
@@ -61,19 +61,21 @@ PERF: 12.745 MIPS
 - Initial: ≥6.4 MIPS (50% of baseline)
 - Stretch: ≥10.2 MIPS (80% of baseline)
 
-## Next Immediate Steps (Task 3 - In Progress)
+## Next Immediate Steps (Task 4 & 5)
 
-1. **Core Primitives (Task 3)** - ✅ COMPLETE
-   - ✅ Implemented bit-packing for terms (tag:5b, lab:18b, val:41b)
-   - ✅ Test pack/unpack roundtrip - 3/3 tests passing
-   - ✅ Handles 64-bit CELL size correctly
+1. **Task 3: Core Primitives & Heap** - ✅ COMPLETE
+   - ✅ Bit-packing for terms (tag:5b, lab:18b, val:41b)
+   - ✅ Heap allocation with circular buffer
+   - ✅ Mark-sweep GC (MARK, MARKED?, SWEEP, GC-COLLECT)
+   - ✅ All 9 tests passing (3 pack/unpack, 3 alloc, 3 GC)
 
-2. **Heap Management (Task 3)** - 🟡 IN PROGRESS
-   - ✅ Implemented circular buffer with wraparound
-   - ✅ Added bounds checking
-   - ⏳ Implement basic mark-sweep GC (NEXT)
+2. **Task 4: Substitution Map** - NEXT
+   - Implement hash-based name->location map
+   - SUBST-PUT, SUBST-GET operations
+   - Affine variable tracking (use count)
+   - SUBST-CLEAR for scope cleanup
 
-3. **Parser (Task 5)** - After GC complete
+3. **Task 5: Parser** - After Task 4
    - Implement tokenizer
    - Parse LAM/APP/VAR subset
    - Add file/line tracking for errors
