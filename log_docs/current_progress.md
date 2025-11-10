@@ -1,12 +1,12 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 10, 2025
-**Current Phase:** Phase 1 Complete - Ready for Implementation
+**Last Updated:** November 10, 2025 (evening)
+**Current Phase:** Phase 2 - Core Runtime In Progress
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-🔄 **Phase 2 (Core Runtime):** Starting Task 2
+🔄 **Phase 2 (Core Runtime):** Task 5 (Parser) - 50% complete
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -14,22 +14,27 @@
 - All 9 Forth modules load successfully
 - Error handling infrastructure functional (DEBUG?, TRACE, ASSERT)
 - HVM3 baseline established: 12.7 MIPS on bench_cnots.hvm
-- Project structure and toolchain complete
-- Launcher script (`./fvm`) operational
+- ✅ Core primitives: Bit-packing for terms working (Task 3)
+- ✅ Heap allocation with mark-sweep GC (Task 3)
+- ✅ Substitution map for variable binding (Task 4)
+- ✅ Tokenizer complete: All token types implemented (Task 5)
+- ✅ Basic parser working: LAM/APP/VAR subset parsing (Task 5)
+- ✅ Fixed critical parser bugs: Stack manipulation corrected
 
 ## What's Next
 
-### Immediate (Task 2)
-Complete error handling:
-- Add file/line tracking in parser
-- Test error reporting with intentional failures
-- Add stack trace capability
+### Immediate (Task 5 - Parser remaining)
+Complete parser for full IC grammar:
+- Parse SUP (superposition), DUP (duplication), ERA (erasure)
+- Add file/line tracking for better error messages
+- Handle comments (# to end of line)
+- Add top-level definition parsing (@name = term)
 
-### Short-term (Task 3)
-Implement core primitives:
-- Bit-packing for terms (tag:5b, lab:18b, val:40b)
-- Heap allocation with circular buffer
-- Basic mark-sweep GC
+### Short-term (Task 6 - Reducer)
+Implement reduction engine:
+- WHNF (Weak Head Normal Form) reduction loop
+- Interaction rules dispatcher
+- Handle all IC interactions
 
 ## Key Metrics
 
@@ -53,10 +58,19 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
-- `feat: Phase 1 complete - ForthVM scaffolding and baseline` (Nov 10, 2025)
-  - Complete scaffolding with 9 modules (365 LOC)
-  - HVM3 baseline established
-  - Ready for implementation
+- `fix: Correct stack manipulation in parser` (Nov 10, 2025 evening)
+  - Fixed critical bug where `DUP` was checking wrong stack position
+  - Changed to `2 PICK` to correctly access token type
+  - All 7 parser tests now passing
+- `feat: Implement tokenizer for IC grammar` (Nov 10, 2025)
+  - Complete tokenizer with all IC token types
+  - 4 tokenizer tests passing
+- `feat: Complete Task 4 - Substitution Map` (Nov 10, 2025)
+  - Hash-based variable binding (132 LOC)
+  - 4/4 tests passing
+- `feat: Complete Task 3 - Core Primitives and Heap` (Nov 10, 2025)
+  - Bit-packing and heap allocation (313 LOC)
+  - 9/9 tests passing
 
 ## Files to Know
 
@@ -67,4 +81,6 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ---
 
-**Status:** Ready to rock! Foundation is solid, time to build the core. 🚀
+**Status:** Parser foundation working! LAM/APP/VAR subset complete. Next: Full IC grammar (SUP/DUP/ERA) and top-level definitions. 🚀
+
+**LOC Count:** ~1,149 lines (up from 720)
