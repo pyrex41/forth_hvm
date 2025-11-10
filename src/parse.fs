@@ -1,9 +1,226 @@
 \ parse.fs - Parser for IC grammar
 
-\ Tokenizer stub
-: NEXT-TOKEN ( -- addr len )
-  \ TODO: implement tokenizer
-  0 0
+\ Input buffer for parsing
+CREATE INPUT-BUF 4096 ALLOT
+VARIABLE INPUT-LEN
+VARIABLE INPUT-POS
+0 INPUT-POS !
+
+\ Current line and column for error reporting
+VARIABLE CURRENT-LINE
+VARIABLE CURRENT-COL
+1 CURRENT-LINE !
+1 CURRENT-COL !
+
+\ Load input string into buffer
+: LOAD-INPUT ( c-addr u -- )
+  DUP INPUT-LEN !
+  INPUT-BUF SWAP CMOVE
+  0 INPUT-POS !
+  1 CURRENT-LINE !
+  1 CURRENT-COL !
+;
+
+\ Check if at end of input
+: END-OF-INPUT? ( -- flag )
+  INPUT-POS @ INPUT-LEN @ >=
+;
+
+\ Peek at current character
+: PEEK-CHAR ( -- c )
+  END-OF-INPUT? IF
+    0
+  ELSE
+    INPUT-BUF INPUT-POS @ + C@
+  THEN
+;
+
+\ Consume and return current character
+: NEXT-CHAR ( -- c )
+  PEEK-CHAR
+  DUP 0<> IF
+    INPUT-POS @ 1+ INPUT-POS !
+    DUP 10 = IF  \ newline
+      CURRENT-LINE @ 1+ CURRENT-LINE !
+      1 CURRENT-COL !
+    ELSE
+      CURRENT-COL @ 1+ CURRENT-COL !
+    THEN
+  THEN
+;
+
+\ Check if character is whitespace
+: IS-WHITESPACE? ( c -- flag )
+  DUP 32 = SWAP   \ space
+  DUP 9 = SWAP    \ tab
+  DUP 10 = SWAP   \ newline
+  13 = OR OR OR   \ carriage return
+;
+
+\ Check if character is alphabetic
+: IS-ALPHA? ( c -- flag )
+  DUP 65 >= OVER 90 <= AND  \ A-Z
+  SWAP DUP 97 >= SWAP 122 <= AND  \ a-z
+  OR
+;
+
+\ Check if character is digit
+: IS-DIGIT? ( c -- flag )
+  DUP 48 >= SWAP 57 <= AND  \ 0-9
+;
+
+\ Check if character is identifier character
+: IS-IDENT-CHAR? ( c -- flag )
+  DUP IS-ALPHA?
+  OVER IS-DIGIT? OR
+  SWAP DUP 95 = SWAP  \ underscore
+  DUP 64 = SWAP       \ @
+  36 = OR OR OR       \ $
+;
+
+\ Skip whitespace
+: SKIP-WHITESPACE ( -- )
+  BEGIN
+    PEEK-CHAR DUP IS-WHITESPACE? WHILE
+    DROP NEXT-CHAR DROP
+  REPEAT
+  DROP
+;
+
+\ Token types
+0 CONSTANT TOK-EOF
+1 CONSTANT TOK-IDENT
+2 CONSTANT TOK-LAMBDA
+3 CONSTANT TOK-LPAREN
+4 CONSTANT TOK-RPAREN
+5 CONSTANT TOK-EQUALS
+6 CONSTANT TOK-LBRACE
+7 CONSTANT TOK-RBRACE
+8 CONSTANT TOK-AMP
+9 CONSTANT TOK-BANG
+10 CONSTANT TOK-TILDE
+11 CONSTANT TOK-HASH
+12 CONSTANT TOK-STAR
+13 CONSTANT TOK-NUMBER
+
+\ Token buffer (stores current token text)
+CREATE TOKEN-BUF 256 ALLOT
+VARIABLE TOKEN-LEN
+VARIABLE TOKEN-TYPE
+
+\ Read identifier token
+: READ-IDENT ( -- )
+  0 TOKEN-LEN !
+  BEGIN
+    PEEK-CHAR DUP IS-IDENT-CHAR? WHILE
+    NEXT-CHAR
+    TOKEN-BUF TOKEN-LEN @ + C!
+    TOKEN-LEN @ 1+ TOKEN-LEN !
+  REPEAT
+  DROP
+  TOK-IDENT TOKEN-TYPE !
+;
+
+\ Read number token
+: READ-NUMBER ( -- )
+  0 TOKEN-LEN !
+  BEGIN
+    PEEK-CHAR DUP IS-DIGIT? WHILE
+    NEXT-CHAR
+    TOKEN-BUF TOKEN-LEN @ + C!
+    TOKEN-LEN @ 1+ TOKEN-LEN !
+  REPEAT
+  DROP
+  TOK-NUMBER TOKEN-TYPE !
+;
+
+\ Get next token
+: NEXT-TOKEN ( -- type addr len )
+  SKIP-WHITESPACE
+
+  END-OF-INPUT? IF
+    TOK-EOF 0 0 EXIT
+  THEN
+
+  PEEK-CHAR
+
+  \ Check for single-character tokens
+  DUP 206 = IF  \ λ (UTF-8: 0xCE 0xBB, but simplified as 0xCE for now)
+    DROP NEXT-CHAR DROP  \ Consume λ
+    NEXT-CHAR DROP        \ Consume second byte
+    TOK-LAMBDA 0 0 EXIT
+  THEN
+
+  DUP 40 = IF  \ (
+    DROP NEXT-CHAR DROP
+    TOK-LPAREN 0 0 EXIT
+  THEN
+
+  DUP 41 = IF  \ )
+    DROP NEXT-CHAR DROP
+    TOK-RPAREN 0 0 EXIT
+  THEN
+
+  DUP 61 = IF  \ =
+    DROP NEXT-CHAR DROP
+    TOK-EQUALS 0 0 EXIT
+  THEN
+
+  DUP 123 = IF  \ {
+    DROP NEXT-CHAR DROP
+    TOK-LBRACE 0 0 EXIT
+  THEN
+
+  DUP 125 = IF  \ }
+    DROP NEXT-CHAR DROP
+    TOK-RBRACE 0 0 EXIT
+  THEN
+
+  DUP 38 = IF  \ &
+    DROP NEXT-CHAR DROP
+    TOK-AMP 0 0 EXIT
+  THEN
+
+  DUP 33 = IF  \ !
+    DROP NEXT-CHAR DROP
+    TOK-BANG 0 0 EXIT
+  THEN
+
+  DUP 126 = IF  \ ~
+    DROP NEXT-CHAR DROP
+    TOK-TILDE 0 0 EXIT
+  THEN
+
+  DUP 35 = IF  \ #
+    DROP NEXT-CHAR DROP
+    TOK-HASH 0 0 EXIT
+  THEN
+
+  DUP 42 = IF  \ *
+    DROP NEXT-CHAR DROP
+    TOK-STAR 0 0 EXIT
+  THEN
+
+  \ Check for identifier
+  DUP IS-ALPHA? OVER 64 = OR IF  \ letter or @
+    DROP
+    READ-IDENT
+    TOKEN-TYPE @ TOKEN-BUF TOKEN-LEN @
+    EXIT
+  THEN
+
+  \ Check for number
+  DUP IS-DIGIT? IF
+    DROP
+    READ-NUMBER
+    TOKEN-TYPE @ TOKEN-BUF TOKEN-LEN @
+    EXIT
+  THEN
+
+  \ Unknown character - error
+  DROP
+  S" Unexpected character" PARSE-ERROR
+  TOK-EOF 0 0
 ;
 
 \ Parser stubs (minimal subset first: LAM, APP, VAR)
@@ -13,7 +230,7 @@
 ;
 
 : PARSE-APP ( -- term )
-  \ TODO: parse (@f x)
+  \ TODO: parse (@f x) or (f x)
   0
 ;
 
@@ -27,7 +244,62 @@
   0
 ;
 
+\ Test tokenizer
+: TEST-TOKENIZER ( -- )
+  ." Testing tokenizer..." CR
+
+  \ Test 1: Simple identifier
+  ." Test 1: Identifier... "
+  S" main" LOAD-INPUT
+  NEXT-TOKEN ( type addr len )
+  2DROP                \ Drop addr len
+  TOK-IDENT = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 2: Equals sign
+  ." Test 2: Equals sign... "
+  S" =" LOAD-INPUT
+  NEXT-TOKEN ( type addr len )
+  2DROP                \ Drop addr len
+  TOK-EQUALS = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 3: Multiple tokens
+  ." Test 3: Multiple tokens... "
+  S" @main = x" LOAD-INPUT
+  NEXT-TOKEN 2DROP     \ @main (TOK-IDENT)
+  TOK-IDENT = >R
+  NEXT-TOKEN 2DROP     \ =
+  TOK-EQUALS = R> AND >R
+  NEXT-TOKEN 2DROP     \ x
+  TOK-IDENT = R> AND IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 4: Parens and whitespace
+  ." Test 4: Parens and whitespace... "
+  S" (  @f  x  )" LOAD-INPUT
+  NEXT-TOKEN 2DROP TOK-LPAREN = >R
+  NEXT-TOKEN 2DROP TOK-IDENT = R> AND >R
+  NEXT-TOKEN 2DROP TOK-IDENT = R> AND >R
+  NEXT-TOKEN 2DROP TOK-RPAREN = R> AND IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+;
+
 \ Test word
 : TEST-PARSE ( -- )
   ." Parse module loaded" CR
+  ." Token types defined: EOF=" TOK-EOF . ." IDENT=" TOK-IDENT . ." LAMBDA=" TOK-LAMBDA . CR
+  TEST-TOKENIZER
 ;
