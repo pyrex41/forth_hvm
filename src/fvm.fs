@@ -5,6 +5,7 @@
 include errors.fs
 include core.fs
 include heap.fs
+include subst.fs
 include parse.fs
 include reduce.fs
 include interact.fs
@@ -22,6 +23,7 @@ include cli.fs
   TEST-ERRORS
   TEST-CORE
   TEST-HEAP
+  TEST-SUBST
   TEST-PARSE
   TEST-REDUCE
   TEST-INTERACT

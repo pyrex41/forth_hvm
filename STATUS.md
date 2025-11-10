@@ -37,6 +37,7 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | errors.fs | ✅ Functional | 45 | Error handling, DEBUG?, TRACE, ASSERT |
 | core.fs | ✅ Functional | 95 | Tags, bit-packing (tag:5b,lab:18b,val:41b), all tests pass |
 | heap.fs | ✅ Functional | 218 | Allocation, wraparound, mark-sweep GC, 6/6 tests pass |
+| subst.fs | ✅ Functional | 132 | Hash-based substitution map, affine tracking, 4/4 tests pass |
 | parse.fs | ⚠️ Stubs | 30 | Tokenizer and parsers TODO |
 | reduce.fs | ⚠️ Stubs | 25 | WHNF loop structure in place |
 | interact.fs | ⚠️ Stubs | 27 | Rule placeholders defined |
@@ -44,7 +45,7 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | book.fs | ⚠️ Stubs | 38 | Dictionary structure in place |
 | cli.fs | ⚠️ Stubs | 45 | Arg parsing and flags defined |
 
-**Total:** ~588 LOC (+223 from Task 3)
+**Total:** ~720 LOC (+132 from Task 4)
 
 ## HVM3 Baseline
 
@@ -61,7 +62,7 @@ PERF: 12.745 MIPS
 - Initial: ≥6.4 MIPS (50% of baseline)
 - Stretch: ≥10.2 MIPS (80% of baseline)
 
-## Next Immediate Steps (Task 4 & 5)
+## Next Immediate Steps (Task 5 & 6)
 
 1. **Task 3: Core Primitives & Heap** - ✅ COMPLETE
    - ✅ Bit-packing for terms (tag:5b, lab:18b, val:41b)
@@ -69,16 +70,18 @@ PERF: 12.745 MIPS
    - ✅ Mark-sweep GC (MARK, MARKED?, SWEEP, GC-COLLECT)
    - ✅ All 9 tests passing (3 pack/unpack, 3 alloc, 3 GC)
 
-2. **Task 4: Substitution Map** - NEXT
-   - Implement hash-based name->location map
-   - SUBST-PUT, SUBST-GET operations
-   - Affine variable tracking (use count)
-   - SUBST-CLEAR for scope cleanup
+2. **Task 4: Substitution Map** - ✅ COMPLETE
+   - ✅ Hash-based name->location map (1024 entries)
+   - ✅ SUBST-PUT, SUBST-GET, SUBST-FIND operations
+   - ✅ SUBST-USE for affine variable tracking
+   - ✅ SUBST-CLEAR for scope cleanup
+   - ✅ All 4 tests passing
 
-3. **Task 5: Parser** - After Task 4
-   - Implement tokenizer
-   - Parse LAM/APP/VAR subset
+3. **Task 5: Parser** - NEXT
+   - Implement tokenizer (whitespace, identifiers, symbols)
+   - Parse LAM/APP/VAR subset first
    - Add file/line tracking for errors
+   - Handle comments and string literals
 
 ## Key Insights from Setup
 
