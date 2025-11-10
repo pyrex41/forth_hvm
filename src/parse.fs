@@ -244,20 +244,19 @@ DEFER PARSE-TERM
 : PARSE-LAM ( -- term )
   \ Expect identifier for parameter name
   NEXT-TOKEN ( type addr len )
-  DUP TOK-IDENT <> IF
+  2 PICK TOK-IDENT <> IF
     2DROP DROP
     S" Expected identifier after λ" PARSE-ERROR
     0 EXIT
   THEN
-  DROP \ Drop type, leaves: ( addr len )
+  ROT DROP \ Drop type, leaves: ( addr len )
 
   \ Allocate location for this binding
   3 ALLOC ( addr len loc )
 
   \ Store binding: name -> location
-  >R 2DUP R> ( addr len addr len loc )
-  SUBST-PUT ( addr len )
-  2DROP ( -- )
+  \ SUBST-PUT expects ( c-addr u loc -- )
+  SUBST-PUT ( -- )
 
   \ Parse body term
   PARSE-TERM ( body-term )
@@ -286,12 +285,12 @@ DEFER PARSE-TERM
 
   \ Expect ')'
   NEXT-TOKEN ( fun arg type addr len )
-  DUP TOK-RPAREN <> IF
+  2 PICK TOK-RPAREN <> IF
     2DROP DROP 2DROP
     S" Expected ')' after application" PARSE-ERROR
     0 EXIT
   THEN
-  2DROP DROP ( fun arg )
+  2DROP DROP 2DROP ( fun arg )
 
   \ Allocate APP term in heap (needs 2 cells: fun and arg)
   2 ALLOC ( fun arg app-loc )
@@ -307,28 +306,28 @@ DEFER PARSE-TERM
 :NONAME ( -- term )
   NEXT-TOKEN ( type addr len )
 
-  \ Check for EOF
-  DUP TOK-EOF = IF
+  \ Check for EOF ( type addr len )
+  2 PICK TOK-EOF = IF
     2DROP DROP
     S" Unexpected end of input" PARSE-ERROR
     0 EXIT
   THEN
 
-  \ Lambda: λx body
-  DUP TOK-LAMBDA = IF
+  \ Lambda: λx body ( type addr len )
+  2 PICK TOK-LAMBDA = IF
     2DROP DROP
     PARSE-LAM EXIT
   THEN
 
-  \ Application: (...)
-  DUP TOK-LPAREN = IF
+  \ Application: (...) ( type addr len )
+  2 PICK TOK-LPAREN = IF
     2DROP DROP
     PARSE-APP EXIT
   THEN
 
-  \ Variable reference
-  DUP TOK-IDENT = IF
-    DROP ( addr len )
+  \ Variable reference ( type addr len )
+  2 PICK TOK-IDENT = IF
+    ROT DROP ( addr len )
     PARSE-VAR EXIT
   THEN
 
@@ -398,6 +397,9 @@ DEFER PARSE-TERM
   \ Reset heap and substitution map
   HEAP HEAP-PTR !
   SUBST-CLEAR
+
+  \ Enable debug for parsing
+  \ -1 DEBUG? !
 
   \ Test 1: Parse identity function .x x (using '.' for lambda)
   ." Test 1: Parse identity .x x... "
