@@ -35,8 +35,8 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 |--------|--------|-----|-------|
 | fvm.fs | ✅ Scaffold | 30 | Main entry point, loads all modules |
 | errors.fs | ✅ Functional | 45 | Error handling, DEBUG?, TRACE, ASSERT |
-| core.fs | ⚠️ Stubs | 48 | Tags defined, packing/unpacking TODO |
-| heap.fs | ⚠️ Stubs | 42 | Basic structure, GC TODO |
+| core.fs | ✅ Functional | 95 | Tags, bit-packing (tag:5b,lab:18b,val:41b), all tests pass |
+| heap.fs | 🟡 Partial | 112 | Allocation w/ wraparound ✅, GC TODO |
 | parse.fs | ⚠️ Stubs | 30 | Tokenizer and parsers TODO |
 | reduce.fs | ⚠️ Stubs | 25 | WHNF loop structure in place |
 | interact.fs | ⚠️ Stubs | 27 | Rule placeholders defined |
@@ -44,7 +44,7 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | book.fs | ⚠️ Stubs | 38 | Dictionary structure in place |
 | cli.fs | ⚠️ Stubs | 45 | Arg parsing and flags defined |
 
-**Total:** ~365 LOC of scaffolding
+**Total:** ~482 LOC (+117 from Task 3 progress)
 
 ## HVM3 Baseline
 
@@ -61,23 +61,22 @@ PERF: 12.745 MIPS
 - Initial: ≥6.4 MIPS (50% of baseline)
 - Stretch: ≥10.2 MIPS (80% of baseline)
 
-## Next Immediate Steps (Task 2)
+## Next Immediate Steps (Task 3 - In Progress)
 
-1. **Error Handling (Priority: HIGH)**
-   - Already implemented basic error words
-   - Need to integrate file/line tracking in parser
-   - Test with intentional errors
-   - Add stack trace capability
+1. **Core Primitives (Task 3)** - ✅ COMPLETE
+   - ✅ Implemented bit-packing for terms (tag:5b, lab:18b, val:41b)
+   - ✅ Test pack/unpack roundtrip - 3/3 tests passing
+   - ✅ Handles 64-bit CELL size correctly
 
-2. **Core Primitives (Task 3)**
-   - Implement bit-packing for terms (tag:5b, lab:18b, val:40b)
-   - Test pack/unpack roundtrip
-   - Handle 32-bit vs 64-bit CELL size
+2. **Heap Management (Task 3)** - 🟡 IN PROGRESS
+   - ✅ Implemented circular buffer with wraparound
+   - ✅ Added bounds checking
+   - ⏳ Implement basic mark-sweep GC (NEXT)
 
-3. **Heap Management (Task 3)**
-   - Implement circular buffer with wraparound
-   - Add bounds checking
-   - Implement basic mark-sweep GC
+3. **Parser (Task 5)** - After GC complete
+   - Implement tokenizer
+   - Parse LAM/APP/VAR subset
+   - Add file/line tracking for errors
 
 ## Key Insights from Setup
 
