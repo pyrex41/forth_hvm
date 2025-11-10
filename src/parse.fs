@@ -103,6 +103,8 @@ VARIABLE CURRENT-COL
 12 CONSTANT TOK-STAR
 13 CONSTANT TOK-NUMBER
 14 CONSTANT TOK-DOT
+15 CONSTANT TOK-COMMA
+16 CONSTANT TOK-SEMI
 
 \ Token buffer (stores current token text)
 CREATE TOKEN-BUF 256 ALLOT
@@ -199,6 +201,16 @@ VARIABLE TOKEN-TYPE
   DUP 46 = IF  \ . (use as lambda)
     DROP NEXT-CHAR DROP
     TOK-LAMBDA 0 0 EXIT
+  THEN
+
+  DUP 44 = IF  \ ,
+    DROP NEXT-CHAR DROP
+    TOK-COMMA 0 0 EXIT
+  THEN
+
+  DUP 59 = IF  \ ;
+    DROP NEXT-CHAR DROP
+    TOK-SEMI 0 0 EXIT
   THEN
 
   \ Check for identifier
@@ -302,6 +314,184 @@ DEFER PARSE-TERM
   TAG-APP 0 R> PACK-TERM
 ;
 
+\ Parse erasure: *
+: PARSE-ERA ( -- term )
+  \ ERA is just a tag with no heap allocation needed
+  TAG-ERA 0 0 PACK-TERM
+;
+
+\ Parse superposition: &label{term1,term2}
+: PARSE-SUP ( -- term )
+  \ Already consumed '&' token
+
+  \ Expect label (number)
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-NUMBER <> IF
+    2DROP DROP
+    S" Expected label number after &" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Convert label string to number
+  \ For now, just use 0 as label (TODO: proper number parsing)
+  2DROP DROP
+  0 ( label )
+
+  \ Expect '{'
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-LBRACE <> IF
+    2DROP DROP DROP
+    S" Expected '{' after & label" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label )
+
+  \ Parse first term
+  PARSE-TERM ( label term1 )
+
+  \ Expect ','
+  NEXT-TOKEN ( label term1 type addr len )
+  2 PICK TOK-COMMA <> IF
+    2DROP DROP 2DROP
+    S" Expected ',' in superposition" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label term1 )
+
+  \ Parse second term
+  PARSE-TERM ( label term1 term2 )
+
+  \ Expect '}'
+  NEXT-TOKEN ( label term1 term2 type addr len )
+  2 PICK TOK-RBRACE <> IF
+    2DROP DROP 2DROP DROP
+    S" Expected '}' after superposition" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label term1 term2 )
+
+  \ Allocate SUP term in heap (needs 2 cells: term1 and term2)
+  2 ALLOC ( label term1 term2 sup-loc )
+  DUP >R ( label term1 term2 sup-loc | R: sup-loc )
+  TUCK ! ( label term1 sup-loc | R: sup-loc )
+  CELL+ ! ( label | R: sup-loc )
+
+  \ Create SUP term: TAG-SUP lab=label val=sup-addr
+  TAG-SUP SWAP R> PACK-TERM
+;
+
+\ Parse duplication: ! &label{var1,var2} = term; continuation
+: PARSE-DUP ( -- term )
+  \ Already consumed '!' token
+
+  \ Expect '&'
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-AMP <> IF
+    2DROP DROP
+    S" Expected '&' after !" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP
+
+  \ Expect label (number)
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-NUMBER <> IF
+    2DROP DROP
+    S" Expected label number in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP
+  0 ( label - TODO: parse actual number )
+
+  \ Expect '{'
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-LBRACE <> IF
+    2DROP DROP DROP
+    S" Expected '{' in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label )
+
+  \ Expect first variable name
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-IDENT <> IF
+    2DROP DROP DROP
+    S" Expected variable name in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  ROT DROP ( label addr len )
+
+  \ Allocate location for first binding
+  3 ALLOC ( label addr len loc1 )
+  SUBST-PUT ( label )
+
+  \ Expect ','
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-COMMA <> IF
+    2DROP DROP DROP
+    S" Expected ',' in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label )
+
+  \ Expect second variable name
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-IDENT <> IF
+    2DROP DROP DROP
+    S" Expected second variable name in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  ROT DROP ( label addr len )
+
+  \ Allocate location for second binding
+  3 ALLOC ( label addr len loc2 )
+  SUBST-PUT ( label )
+
+  \ Expect '}'
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-RBRACE <> IF
+    2DROP DROP DROP
+    S" Expected '}' after duplication variables" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label )
+
+  \ Expect '='
+  NEXT-TOKEN ( label type addr len )
+  2 PICK TOK-EQUALS <> IF
+    2DROP DROP DROP
+    S" Expected '=' in duplication" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label )
+
+  \ Parse duplicated term
+  PARSE-TERM ( label dup-term )
+
+  \ Expect ';'
+  NEXT-TOKEN ( label dup-term type addr len )
+  2 PICK TOK-SEMI <> IF
+    2DROP DROP 2DROP
+    S" Expected ';' after duplication term" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( label dup-term )
+
+  \ Parse continuation
+  PARSE-TERM ( label dup-term cont-term )
+
+  \ Allocate DUP term in heap (needs 2 cells: dup-term and cont-term)
+  2 ALLOC ( label dup-term cont-term dup-loc )
+  DUP >R ( label dup-term cont-term dup-loc | R: dup-loc )
+  TUCK ! ( label dup-term dup-loc | R: dup-loc )
+  CELL+ ! ( label | R: dup-loc )
+
+  \ Create DUP term: TAG-DUP lab=label val=dup-addr
+  TAG-DUP SWAP R> PACK-TERM
+
+  \ TODO: Should unbind variables here (pop scope)
+;
+
 \ Main term parser (dispatcher)
 :NONAME ( -- term )
   NEXT-TOKEN ( type addr len )
@@ -329,6 +519,24 @@ DEFER PARSE-TERM
   2 PICK TOK-IDENT = IF
     ROT DROP ( addr len )
     PARSE-VAR EXIT
+  THEN
+
+  \ Erasure: * ( type addr len )
+  2 PICK TOK-STAR = IF
+    2DROP DROP
+    PARSE-ERA EXIT
+  THEN
+
+  \ Superposition: &label{...} ( type addr len )
+  2 PICK TOK-AMP = IF
+    2DROP DROP
+    PARSE-SUP EXIT
+  THEN
+
+  \ Duplication: ! &label{...} = ...; ... ( type addr len )
+  2 PICK TOK-BANG = IF
+    2DROP DROP
+    PARSE-DUP EXIT
   THEN
 
   \ Unknown token
@@ -440,6 +648,53 @@ DEFER PARSE-TERM
   S" x" LOAD-INPUT
   PARSE-TERM ( term )
   DUP GET-TAG TAG-VAR = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 4: Parse erasure *
+  ." Test 4: Parse erasure *... "
+  S" *" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-ERA = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 5: Parse superposition &0{a,b}
+  ." Test 5: Parse superposition &0{a,b}... "
+  S" a" 100 SUBST-PUT
+  S" b" 200 SUBST-PUT
+  S" &0{a,b}" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-SUP = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test 6: Parse duplication ! &0{x,y} = *; x
+  ." Test 6: Parse duplication ! &0{x,y} = *; x... "
+  S" ! &0{x,y} = *; x" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-DUP = IF
     ." PASS" CR
   ELSE
     ." FAIL (tag=" GET-TAG . ." )" CR
