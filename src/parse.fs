@@ -509,13 +509,15 @@ DEFER PARSE-TERM
   2DROP DROP ( lhs rhs | R: opcode )
 
   \ Allocate OP2 term in heap (needs 2 cells: lhs, rhs)
+  \ Use same pattern as PARSE-APP
   2 ALLOC ( lhs rhs op2-loc | R: opcode )
   DUP >R ( lhs rhs op2-loc | R: opcode op2-loc )
-  TUCK ! ( lhs op2-loc | R: opcode op2-loc )
-  CELL+ ! ( | R: opcode op2-loc )
+  2 PICK OVER ! ( lhs rhs op2-loc | R: opcode op2-loc ) \ Store lhs at op2-loc
+  CELL+ ! ( lhs | R: opcode op2-loc ) \ Store rhs at op2-loc+CELL
+  DROP ( | R: opcode op2-loc )
 
   \ Create OP2 term: TAG-OP2 lab=opcode val=op2-loc
-  TAG-OP2 R> R> PACK-TERM
+  TAG-OP2 R> R> SWAP PACK-TERM
 ;
 
 \ Parse superposition: &label{term1,term2}
@@ -1173,7 +1175,7 @@ DEFER PARSE-CTR
     2DROP DROP
     \ Peek at next token to see if it's an operator
     NEXT-TOKEN ( type addr len )
-    DUP TOK-PLUS >= OVER TOK-NE <= AND IF
+    2 PICK DUP TOK-PLUS >= SWAP TOK-NE <= AND IF
       \ It's an operator - parse as OP2
       2 PICK PARSE-OP2 EXIT
     ELSE
