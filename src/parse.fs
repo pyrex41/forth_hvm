@@ -1175,9 +1175,11 @@ DEFER PARSE-CTR
     2DROP DROP
     \ Peek at next token to see if it's an operator
     NEXT-TOKEN ( type addr len )
-    2 PICK DUP TOK-PLUS >= SWAP TOK-NE <= AND IF
+    \ Check if token is an OP2 operator (TOK-STAR or TOK-PLUS through TOK-NE)
+    2 PICK DUP TOK-STAR = SWAP DUP TOK-PLUS >= SWAP TOK-NE <= AND OR IF
       \ It's an operator - parse as OP2
-      NIP NIP PARSE-OP2 EXIT
+      ROT 2DROP  \ ( type addr len -- type )
+      PARSE-OP2 EXIT
     ELSE
       \ Not an operator - it's the function in application
       \ Put token back by creating  term from it

@@ -10,6 +10,9 @@ DEFER CTR-DUP
 DEFER OP2-U32
 DEFER MATCH-REDUCE
 
+\ Forward declaration for RESOLVE-REF (defined in book.fs)
+DEFER RESOLVE-REF
+
 \ Iteration counter for stats
 VARIABLE ITR-COUNT
 0 ITR-COUNT !
@@ -97,6 +100,11 @@ VARIABLE ITR-COUNT
   \ Handle MATCH: pattern matching on U32
   DUP TAG-MATCH = IF
     DROP MATCH-REDUCE EXIT
+  THEN
+
+  \ Handle REF: resolve reference by looking up in book
+  DUP TAG-REF = IF
+    DROP RESOLVE-REF EXIT
   THEN
 
   \ No reduction possible - return term unchanged (already a value or stuck)

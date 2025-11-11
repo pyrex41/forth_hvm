@@ -131,7 +131,7 @@ VARIABLE NAME-LEN  \ Length of current function name
 ;
 
 \ Resolve a single REF term to its definition
-: RESOLVE-REF ( ref-term -- resolved-term )
+:NONAME ( ref-term -- resolved-term )
   DUP GET-TAG TAG-REF <> IF
     \ Not a REF, return as-is
     EXIT
@@ -151,7 +151,7 @@ VARIABLE NAME-LEN  \ Length of current function name
     S" Undefined function reference" PARSE-ERROR
     TAG-ERA 0 0 PACK-TERM  \ Return ERA on error
   THEN
-;
+; IS RESOLVE-REF
 
 \ Forward declaration for recursion
 DEFER LINK-TERM
