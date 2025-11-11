@@ -8,7 +8,6 @@ DEFER SUBST-WALK
 :NONAME ( term var-loc arg-term -- term' )
   >R >R ( term | R: arg-term var-loc )
   DUP GET-TAG
-  ." [SUBST tag=" DUP . ." ] "
 
   \ If it's a VAR, check if it matches the binding location
   DUP TAG-VAR = IF
@@ -26,8 +25,8 @@ DEFER SUBST-WALK
 
   \ If it's a LAM, recursively substitute in the body
   DUP TAG-LAM = IF
-    DROP DUP GET-LAB ." [LAM-lab=" DUP . ." ] " ( term lab )
-    OVER GET-VAL ." [LAM-val=" DUP . ." ] " @ ( term lab body-term )
+    DROP DUP GET-LAB ( term lab )
+    OVER GET-VAL @ ( term lab body-term )
     R@ R> SUBST-WALK ( term lab body-term' )
 
     \ Allocate new LAM node (1 cell for body)
@@ -55,8 +54,43 @@ DEFER SUBST-WALK
     TAG-APP 0 ROT PACK-TERM EXIT
   THEN
 
-  \ For ERA, SUP, DUP, U32, CTR - keep them as-is for now
-  \ (full implementation would handle SUP and DUP recursively)
+  \ If it's SUP, recursively substitute in both branches
+  DUP TAG-SUP = IF
+    DROP DUP GET-LAB ( term sup-lab )
+    OVER GET-VAL ( term sup-lab sup-loc )
+    DUP @ ( term sup-lab sup-loc a-term )
+    R@ R@ SUBST-WALK ( term sup-lab sup-loc a-term' )
+    OVER CELL+ @ ( term sup-lab sup-loc a-term' b-term )
+    R@ R> SUBST-WALK ( term sup-lab sup-loc a-term' b-term' )
+
+    \ Allocate new SUP node (2 cells: a, b)
+    2 ALLOC >R ( term sup-lab sup-loc a-term' b-term' | R: new-loc )
+    OVER R@ ! ( term sup-lab sup-loc a-term' b-term' | R: new-loc )
+    R> DUP >R CELL+ ! ( term sup-lab sup-loc a-term' | R: new-loc )
+    2DROP DROP ( sup-lab | R: new-loc )
+    R> TAG-SUP -ROT PACK-TERM ( sup-term' )
+    EXIT
+  THEN
+
+  \ If it's DUP, recursively substitute in target and continuation
+  DUP TAG-DUP = IF
+    DROP DUP GET-LAB ( term dup-lab )
+    OVER GET-VAL ( term dup-lab dup-loc )
+    DUP @ ( term dup-lab dup-loc target-term )
+    R@ R@ SUBST-WALK ( term dup-lab dup-loc target-term' )
+    OVER CELL+ @ ( term dup-lab dup-loc target-term' cont-term )
+    R@ R> SUBST-WALK ( term dup-lab dup-loc target-term' cont-term' )
+
+    \ Allocate new DUP node (2 cells: target, cont)
+    2 ALLOC >R ( term dup-lab dup-loc target-term' cont-term' | R: new-loc )
+    OVER R@ ! ( term dup-lab dup-loc target-term' cont-term' | R: new-loc )
+    R> DUP >R CELL+ ! ( term dup-lab dup-loc target-term' | R: new-loc )
+    2DROP DROP ( dup-lab | R: new-loc )
+    R> TAG-DUP -ROT PACK-TERM ( dup-term' )
+    EXIT
+  THEN
+
+  \ For ERA, U32, CTR - keep them as-is (no children to substitute)
   DROP R> R> 2DROP ( term )
 ; IS SUBST-WALK
 
@@ -113,27 +147,124 @@ DEFER SUBST-WALK
     2DROP DROP R> DROP ( cont-term )
   ELSE
     \ Case 2: Different labels (distribution)
-    \ x <- &R{a0,b0}, y <- &R{a1,b1}
-    \ ! &L{a0,a1} = a; ! &L{b0,b1} = b; K
+    \ ! &L{x,y} = &R{a,b}; K
+    \ -> x <- &R{a0,b0}, y <- &R{a1,b1}
+    \    ! &L{a0,a1} = a; ! &L{b0,b1} = b; K
 
     \ Get a and b from SUP
-    OVER GET-VAL ( dup-term sup-term cont-term sup-loc )
-    DUP @ SWAP CELL+ @ ( dup-term sup-term cont-term a-term b-term )
+    OVER GET-VAL ( dup-term sup-term cont-term sup-loc | R: L )
+    DUP @ ( dup-term sup-term cont-term sup-loc a-term | R: L )
+    SWAP CELL+ @ ( dup-term sup-term cont-term a-term b-term | R: L )
 
-    \ For now, stub this complex case
-    2DROP 2DROP DROP R> DROP 0
+    \ Get R label from sup-term
+    3 PICK GET-LAB >R ( dup-term sup-term cont-term a-term b-term | R: L R )
+
+    \ Create fresh VARs for a0, a1, b0, b1
+    4 ALLOC DUP >R ( ... | R: L R vars-loc )
+
+    \ Create a0 VAR
+    R@ TAG-VAR 0 ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term a0-var | R: L R vars-loc )
+
+    \ Create a1 VAR
+    R@ CELL+ TAG-VAR 0 ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term a0-var a1-var | R: L R vars-loc )
+
+    \ Create b0 VAR
+    R@ 2 CELLS + TAG-VAR 0 ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term a0-var a1-var b0-var | R: L R vars-loc )
+
+    \ Create b1 VAR
+    R@ 3 CELLS + TAG-VAR 0 ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term a0-var a1-var b0-var b1-var | R: L R vars-loc )
+
+    \ Create &R{a0, b0}
+    2 ALLOC DUP >R ( ... | R: L R vars-loc sup0-loc )
+    3 PICK OVER ! ( store a0-var )
+    OVER R@ CELL+ ! ( store b0-var )
+    R> R@ TAG-SUP -ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term a1-var b1-var sup0-term | R: L R vars-loc )
+
+    \ Create &R{a1, b1}
+    2 ALLOC DUP >R ( ... | R: L R vars-loc sup1-loc )
+    2 PICK OVER ! ( store a1-var )
+    OVER R@ CELL+ ! ( store b1-var )
+    R> R> TAG-SUP -ROT PACK-TERM ( dup-term sup-term cont-term a-term b-term sup0-term sup1-term | R: L R )
+
+    \ Create DUP: ! &L{a0,a1} = a
+    2 ALLOC DUP >R ( ... | R: L R dup-a-loc )
+    5 PICK OVER ! ( store a-term )
+    \ Store placeholder continuation (will link to next DUP)
+    0 R@ CELL+ ! ( temp )
+    R> R@ TAG-DUP -ROT PACK-TERM ( dup-term sup-term cont-term b-term sup0-term sup1-term dup-a | R: L R )
+
+    \ Create DUP: ! &L{b0,b1} = b
+    2 ALLOC DUP >R ( ... | R: L R dup-b-loc )
+    4 PICK OVER ! ( store b-term )
+    \ Link to original continuation
+    3 PICK R@ CELL+ ! ( store cont-term )
+    R> R> DROP R> TAG-DUP -ROT PACK-TERM ( dup-term sup-term cont-term sup0-term sup1-term dup-a dup-b )
+
+    \ Link dup-a continuation to dup-b
+    OVER 5 PICK GET-VAL CELL+ ! ( store dup-b in dup-a continuation )
+
+    \ Create result SUP &L{sup0-term, sup1-term} (x and y bindings)
+    2 ALLOC DUP >R ( ... | R: L sup-result-loc )
+    4 PICK OVER ! ( store sup0-term )
+    3 PICK R@ CELL+ ! ( store sup1-term )
+    R> R> TAG-SUP -ROT PACK-TERM ( dup-term sup-term cont-term dup-a dup-b result-sup )
+
+    \ Clean up and return the chained DUP structure
+    NIP NIP NIP NIP NIP ( dup-a )
   THEN
 ;
 
 : DUP-LAM ( dup-term -- reduced-term )
   \ ! &L{r,s} = λx.f; K
   \ -> r <- λx0.f0, s <- λx1.f1, x <- &L{x0,x1}, ! &L{f0,f1} = f; K
-  \ This is complex - needs to duplicate the lambda body
+  \ Create two lambda copies with fresh bindings and substitute variable with SUP
 
-  \ For now, just return the continuation
-  \ TODO: Implement full DUP-LAM logic
-  DUP GET-VAL CELL+ @ ( dup-term cont-term )
-  NIP
+  \ Extract label, lambda term, and continuation
+  DUP GET-LAB >R ( dup-term | R: L )
+  DUP GET-VAL ( dup-term dup-loc )
+  DUP @ ( dup-term dup-loc lam-term )
+  SWAP CELL+ @ ( dup-term lam-term cont-term )
+
+  \ Extract lambda's binding ID and body
+  OVER GET-LAB ( dup-term lam-term cont-term old-bind-id )
+  ROT GET-VAL @ ( dup-term cont-term old-bind-id body-term )
+
+  \ Create fresh binding IDs for x0 and x1
+  FRESH-BIND-ID DUP >R ( dup-term cont-term old-bind-id body-term x0-id | R: L x0-id )
+  FRESH-BIND-ID DUP >R ( dup-term cont-term old-bind-id body-term x0-id x1-id | R: L x0-id x1-id )
+
+  \ Create VAR terms for x0 and x1
+  DUP TAG-VAR 0 ROT PACK-TERM ( dup-term cont-term old-bind-id body-term x1-id x0-var | R: L x0-id x1-id )
+  OVER TAG-VAR 0 ROT PACK-TERM ( dup-term cont-term old-bind-id body-term x1-id x0-var x1-var | R: L x0-id x1-id )
+
+  \ Create SUP &L{x0-var, x1-var}
+  2 ALLOC DUP >R ( ... | R: L x0-id x1-id sup-loc )
+  2 PICK OVER ! ( store x0-var at sup-loc )
+  OVER R@ CELL+ ! ( store x1-var at sup-loc+CELL )
+  R> R@ TAG-SUP -ROT PACK-TERM ( dup-term cont-term old-bind-id body-term x1-id sup-term | R: L x0-id x1-id )
+
+  \ Substitute old-bind-id with sup-term in body-term
+  ROT >R ( dup-term cont-term body-term x1-id sup-term | R: L x0-id x1-id old-bind-id )
+  R> SWAP SUBST-WALK ( dup-term cont-term body-term' x1-id | R: L x0-id x1-id )
+
+  \ Create λx0.body-term'
+  OVER 1 ALLOC DUP >R ( ... | R: L x0-id x1-id lam0-loc )
+  TUCK ! ( dup-term cont-term x1-id lam0-loc )
+  R> R@ TAG-LAM -ROT PACK-TERM ( dup-term cont-term x1-id lam0-term | R: L x0-id x1-id )
+
+  \ Create λx1.body-term' (reuse same body pointer for simplicity)
+  1 ALLOC DUP >R ( ... | R: L x0-id x1-id lam1-loc )
+  3 PICK @ OVER ! ( store same body )
+  R> R> TAG-LAM -ROT PACK-TERM ( dup-term cont-term lam0-term lam1-term | R: L x0-id )
+
+  \ Create SUP &L{lam0-term, lam1-term}
+  2 ALLOC DUP >R ( ... | R: L x0-id sup-loc )
+  2 PICK OVER ! ( store lam0 )
+  OVER R@ CELL+ ! ( store lam1 )
+  R> R> DROP R> TAG-SUP -ROT PACK-TERM ( dup-term cont-term result-sup )
+
+  \ Clean up stack and return result-sup
+  NIP NIP ( result-sup )
 ;
 
 : APP-SUP ( app-term -- reduced-term )

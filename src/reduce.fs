@@ -24,15 +24,12 @@ VARIABLE ITR-COUNT
   \ Handle APP: check what we're applying to
   DUP TAG-APP = IF
     DEBUG? IF ." [APP case] " THEN
-    DROP DUP GET-VAL ." [app-loc=" DUP . ." ] " @ ( term fun-term )
-    ." [fun-term=" DUP . ." ] "
+    DROP DUP GET-VAL @ ( term fun-term )
     DUP GET-TAG
-    ." [fun-tag=" DUP . ." ] "
 
     \ APP-LAM: (λx.f a) -> f[x:=a]
     DUP TAG-LAM = IF
       DROP DROP ( ) \ Drop fun-tag and fun-term, leave just term
-      ." [APP-LAM] "
       APP-LAM EXIT
     THEN
 
@@ -83,11 +80,9 @@ VARIABLE ITR-COUNT
 : WHNF ( term -- whnf-term )
   BEGIN
     DUP IS-VALUE? 0= WHILE
-    ." [WHNF loop] " ( term )
     INTERACT-STEP
-    DUP 0= IF ." [stuck] " EXIT THEN  \ Stuck term, stop
+    DUP 0= IF EXIT THEN  \ Stuck term, stop
   REPEAT
-  ." [done] "
 ;
 
 \ Test word

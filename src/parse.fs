@@ -288,7 +288,6 @@ DEFER PARSE-TERM
   \ Create VAR term: VAR has val=location
   \ TAG-VAR 0 location PACK-TERM
   TAG-VAR 0 ROT PACK-TERM
-  ." [VAR: term=" DUP . ." ] "
 ;
 
 \ Parse lambda: λx body
@@ -315,13 +314,11 @@ DEFER PARSE-TERM
 
   \ Allocate LAM term in heap (needs 1 cell to store body pointer)
   1 ALLOC ( body-term lam-loc | R: bind-id )
-  ." [PARSE-LAM allocated lam-loc=" DUP . ." ] "
   DUP >R ( body-term lam-loc | R: bind-id lam-loc )
   ! ( | R: bind-id lam-loc )
 
   \ Create LAM term: TAG-LAM lab=bind-id val=lam-loc
-  R> R> SWAP ." [PARSE-LAM packing: bind=" OVER . ." lam=" DUP . ." ] " TAG-LAM -ROT PACK-TERM ( lam-term )
-  ." [LAM: term=" DUP . ." ] "
+  R> R> SWAP TAG-LAM -ROT PACK-TERM ( lam-term )
 
   \ TODO: Should unbind variable here (pop scope)
   \ For now, just return the term
@@ -348,7 +345,6 @@ DEFER PARSE-TERM
 
   \ Allocate APP term in heap (needs 2 cells: fun and arg)
   2 ALLOC ( fun arg app-loc )
-  ." [APP: fun=" 2 PICK . ." arg=" OVER . ." loc=" DUP . ." ] "
   DUP >R ( fun arg app-loc | R: app-loc )
   2 PICK OVER ! ( fun arg app-loc ) \ Store fun at app-loc
   CELL+ ! ( fun | R: app-loc ) \ Store arg at app-loc+CELL
@@ -362,7 +358,6 @@ DEFER PARSE-TERM
 : PARSE-ERA ( -- term )
   \ ERA is just a tag with no heap allocation needed
   TAG-ERA 0 0 PACK-TERM
-  ." [ERA: term=" DUP . ." ] "
 ;
 
 \ Parse superposition: &label{term1,term2}
