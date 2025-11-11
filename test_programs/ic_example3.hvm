@@ -1,0 +1,9 @@
+// Example 3 from IC.md: superposition
+// !{a,b} = {λx.x,λy.y}; (a b)
+// Should reduce to λy.y
+
+@id_x = .x x
+@id_y = .y y
+@sup = &0{@id_x, @id_y}
+
+@main = !&0{a, b} = @sup; (a b)

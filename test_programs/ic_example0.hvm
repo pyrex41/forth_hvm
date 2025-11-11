@@ -1,0 +1,7 @@
+// Example 0 from IC.md: simple λ-term
+// (λx.λt.(t x) λy.y) -> λt.(t λy.y)
+
+@id = .y y
+@app_id = (.x .t (t x) @id)
+
+@main = @app_id
