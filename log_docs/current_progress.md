@@ -1,12 +1,12 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 10, 2025 (evening)
+**Last Updated:** November 10, 2025 (evening - late)
 **Current Phase:** Phase 2 - Core Runtime In Progress
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-🔄 **Phase 2 (Core Runtime):** Task 5 (Parser) - 50% complete
+🔄 **Phase 2 (Core Runtime):** Task 5 (Parser) - 80% complete
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -17,18 +17,21 @@
 - ✅ Core primitives: Bit-packing for terms working (Task 3)
 - ✅ Heap allocation with mark-sweep GC (Task 3)
 - ✅ Substitution map for variable binding (Task 4)
-- ✅ Tokenizer complete: All token types implemented (Task 5)
-- ✅ Basic parser working: LAM/APP/VAR subset parsing (Task 5)
+- ✅ Tokenizer complete: All IC token types implemented (Task 5)
+- ✅ Parser working: Full IC grammar parsing (Task 5)
+  - LAM/APP/VAR (lambda calculus subset)
+  - ERA/SUP/DUP (interaction calculus constructs)
 - ✅ Fixed critical parser bugs: Stack manipulation corrected
+- ✅ 10/10 parser tests passing
 
 ## What's Next
 
-### Immediate (Task 5 - Parser remaining)
-Complete parser for full IC grammar:
-- Parse SUP (superposition), DUP (duplication), ERA (erasure)
+### Immediate (Task 5 - Parser remaining 20%)
+Finish parser implementation:
+- Parse actual label numbers (currently hardcoded to 0)
+- Add top-level definition parsing (`@name = term`)
 - Add file/line tracking for better error messages
-- Handle comments (# to end of line)
-- Add top-level definition parsing (@name = term)
+- Handle comments
 
 ### Short-term (Task 6 - Reducer)
 Implement reduction engine:
@@ -58,6 +61,10 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
+- `feat: Complete full IC grammar parser` (Nov 10, 2025 late evening)
+  - Added ERA, SUP, DUP parsers (+256 LOC)
+  - All 10 tests passing (4 tokenizer + 6 parser)
+  - parse.fs now 715 LOC
 - `fix: Correct stack manipulation in parser` (Nov 10, 2025 evening)
   - Fixed critical bug where `DUP` was checking wrong stack position
   - Changed to `2 PICK` to correctly access token type
@@ -65,12 +72,6 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - `feat: Implement tokenizer for IC grammar` (Nov 10, 2025)
   - Complete tokenizer with all IC token types
   - 4 tokenizer tests passing
-- `feat: Complete Task 4 - Substitution Map` (Nov 10, 2025)
-  - Hash-based variable binding (132 LOC)
-  - 4/4 tests passing
-- `feat: Complete Task 3 - Core Primitives and Heap` (Nov 10, 2025)
-  - Bit-packing and heap allocation (313 LOC)
-  - 9/9 tests passing
 
 ## Files to Know
 
@@ -81,6 +82,6 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ---
 
-**Status:** Parser foundation working! LAM/APP/VAR subset complete. Next: Full IC grammar (SUP/DUP/ERA) and top-level definitions. 🚀
+**Status:** Full IC grammar parser complete! ERA/SUP/DUP working. Next: Label number parsing and top-level definitions. 🚀
 
-**LOC Count:** ~1,149 lines (up from 720)
+**LOC Count:** ~1,405 lines (Task 5: 80% done, parser is 715 LOC)

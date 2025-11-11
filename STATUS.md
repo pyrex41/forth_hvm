@@ -38,14 +38,14 @@ Successfully completed initial setup for ForthVM, a Forth implementation of HVM3
 | core.fs | ✅ Functional | 95 | Tags, bit-packing (tag:5b,lab:18b,val:41b), all tests pass |
 | heap.fs | ✅ Functional | 218 | Allocation, wraparound, mark-sweep GC, 6/6 tests pass |
 | subst.fs | ✅ Functional | 132 | Hash-based substitution map, affine tracking, 4/4 tests pass |
-| parse.fs | 🔄 Partial | 459 | Tokenizer working, LAM/APP/VAR parser complete, 7/7 tests pass |
+| parse.fs | 🔄 Partial | 715 | Full IC grammar parser, 10/10 tests pass, needs number parsing & top-level defs |
 | reduce.fs | ⚠️ Stubs | 25 | WHNF loop structure in place |
 | interact.fs | ⚠️ Stubs | 27 | Rule placeholders defined |
 | collapse.fs | ⚠️ Stubs | 35 | Normalization pipeline outlined |
 | book.fs | ⚠️ Stubs | 38 | Dictionary structure in place |
 | cli.fs | ⚠️ Stubs | 45 | Arg parsing and flags defined |
 
-**Total:** ~1,149 LOC (+429 from Task 5 partial)
+**Total:** ~1,405 LOC (+256 from Task 5 IC grammar)
 
 ## HVM3 Baseline
 
@@ -77,14 +77,18 @@ PERF: 12.745 MIPS
    - ✅ SUBST-CLEAR for scope cleanup
    - ✅ All 4 tests passing
 
-3. **Task 5: Parser** - 🔄 IN PROGRESS (50% complete)
-   - ✅ Tokenizer implemented (whitespace, identifiers, symbols)
+3. **Task 5: Parser** - 🔄 IN PROGRESS (80% complete)
+   - ✅ Tokenizer implemented (whitespace, identifiers, symbols, comma, semicolon)
    - ✅ Parse LAM/APP/VAR subset working
-   - ✅ All 7 tests passing (4 tokenizer + 3 parser)
+   - ✅ Parse ERA (erasure: `*`)
+   - ✅ Parse SUP (superposition: `&label{a,b}`)
+   - ✅ Parse DUP (duplication: `! &label{x,y} = term; cont`)
+   - ✅ All 10 tests passing (4 tokenizer + 6 parser)
    - ✅ Fixed critical stack manipulation bugs
-   - ⏳ TODO: Parse full IC grammar (SUP, DUP, ERA, etc.)
+   - ⏳ TODO: Parse actual label numbers (currently hardcoded to 0)
+   - ⏳ TODO: Parse top-level definitions (`@name = term`)
    - ⏳ TODO: Add file/line tracking for errors
-   - ⏳ TODO: Handle comments and string literals
+   - ⏳ TODO: Handle comments
 
 ## Key Insights from Setup
 
