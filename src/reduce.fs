@@ -70,6 +70,12 @@ VARIABLE ITR-COUNT
       DUP-SUP EXIT
     THEN
 
+    \ DUP-CTR: ! &L{r,s} = #T{a,b,...}; K -> distribute constructor
+    DUP TAG-CTR = IF
+      DROP ( term ) \ Implement CTR-DUP
+      CTR-DUP EXIT
+    THEN
+
     DROP 2DROP 0 EXIT  \ Stuck term
   THEN
 

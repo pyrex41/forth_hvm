@@ -670,6 +670,113 @@ DEFER PARSE-TERM
   \ TODO: Should unbind variables here (pop scope)
 ;
 
+\ Parse constructor: #Tag{field1, field2, ...}
+: PARSE-CTR ( -- term )
+  \ Expect tag identifier
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-IDENT <> IF
+    2DROP DROP
+    S" Expected constructor tag after #" PARSE-ERROR
+    0 EXIT
+  THEN
+  ROT DROP ( addr len )
+
+  \ Convert tag name to a numeric ID (simple hash)
+  \ For simplicity: use first character as tag ID
+  OVER C@ ( addr len tag-id )
+  >R 2DROP ( | R: tag-id )
+
+  \ Expect '{'
+  NEXT-TOKEN ( type addr len | R: tag-id )
+  2 PICK TOK-LBRACE <> IF
+    2DROP DROP R> DROP
+    S" Expected '{' after constructor tag" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( | R: tag-id )
+
+  \ Count fields and collect them
+  \ We'll use a simple approach: parse up to 8 fields max
+  \ and store them in heap
+  0 ( field-count | R: tag-id )
+
+  \ Check for empty constructor #Tag{}
+  NEXT-TOKEN ( field-count type addr len | R: tag-id )
+  2 PICK TOK-RBRACE = IF
+    \ Empty constructor
+    2DROP DROP ( field-count | R: tag-id )
+    R> TAG-CTR SWAP 0 PACK-TERM EXIT
+  THEN
+
+  \ Put token back by re-parsing it
+  2 PICK TOK-IDENT = IF
+    ROT DROP PARSE-VAR ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-NUMBER = IF
+    ROT DROP PARSE-U32 ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-LPAREN = IF
+    2DROP DROP PARSE-TERM ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-LAMBDA = IF
+    2DROP DROP PARSE-LAM ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-STAR = IF
+    2DROP DROP PARSE-ERA ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-AMP = IF
+    2DROP DROP PARSE-SUP ( field-count field1 | R: tag-id )
+  ELSE 2 PICK TOK-HASH = IF
+    2DROP DROP PARSE-CTR ( field-count field1 | R: tag-id )
+  ELSE
+    2DROP DROP ( field-count | R: tag-id )
+    R> DROP
+    S" Unexpected token in constructor" PARSE-ERROR
+    0 EXIT
+  THEN THEN THEN THEN THEN THEN THEN
+
+  SWAP 1+ SWAP ( field-count+1 field1 | R: tag-id )
+
+  \ Parse remaining fields (comma-separated)
+  BEGIN
+    NEXT-TOKEN ( ...fields field-count type addr len | R: tag-id )
+    2 PICK TOK-COMMA = WHILE
+    2DROP DROP ( ...fields field-count | R: tag-id )
+
+    \ Parse next field
+    PARSE-TERM ( ...fields field-count fieldN | R: tag-id )
+    SWAP 1+ SWAP ( ...fields field-count+1 fieldN | R: tag-id )
+  REPEAT
+
+  \ Should be '}'
+  2 PICK TOK-RBRACE <> IF
+    2DROP DROP ( ...fields field-count | R: tag-id )
+    \ Clean up stack - drop all fields
+    BEGIN DUP 0> WHILE
+      SWAP DROP 1-
+    REPEAT
+    DROP R> DROP
+    S" Expected '}' or ',' in constructor" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( ...fields field-count | R: tag-id )
+
+  \ Allocate heap space for fields (field-count cells)
+  DUP ALLOC ( ...fields field-count fields-addr | R: tag-id )
+  DUP >R ( ...fields field-count fields-addr | R: tag-id fields-addr )
+
+  \ Store fields in reverse order
+  OVER 1- CELLS OVER + ( ...fields field-count fields-addr last-field-addr | R: tag-id fields-addr )
+  >R DROP ( ...fields field-count | R: tag-id fields-addr last-field-addr )
+
+  \ Copy fields to heap
+  BEGIN DUP 0> WHILE ( ...fields field-count | R: tag-id fields-addr last-field-addr )
+    R> OVER >R ( ...fields field-count dest-addr | R: tag-id fields-addr dest-addr )
+    SWAP >R ( ...fields dest-addr | R: tag-id fields-addr dest-addr field-count )
+    SWAP ! ( ...fields-1 | R: tag-id fields-addr dest-addr field-count )
+    R> 1- R> CELL- >R ( field-count-1 | R: tag-id fields-addr dest-addr-CELL )
+  REPEAT
+  DROP R> DROP ( | R: tag-id fields-addr )
+
+  \ Create CTR term: TAG-CTR lab=tag-id val=fields-addr
+  TAG-CTR R> R> PACK-TERM
+;
+
 \ Main term parser (dispatcher)
 :NONAME ( -- term )
   NEXT-TOKEN ( type addr len )
@@ -759,6 +866,12 @@ DEFER PARSE-TERM
     PARSE-DUP EXIT
   THEN
 
+  \ Constructor: #Tag{...} ( type addr len )
+  2 PICK TOK-HASH = IF
+    2DROP DROP
+    PARSE-CTR EXIT
+  THEN
+
   \ Unknown token
   2DROP DROP
   S" Unexpected token" PARSE-ERROR
@@ -792,6 +905,31 @@ DEFER PARSE-TERM
     THEN
   ELSE
     DROP ." OP2-FAIL" CR
+  THEN
+;
+
+\ Test CTR parsing
+: TEST-CTR ( -- )
+  ." Testing CTR parsing..." CR
+
+  \ Test 1: Parse empty constructor
+  ." Test 1: Empty constructor #Nil{}... "
+  S" #Nil{}" LOAD-INPUT
+  PARSE-TERM ( term )
+  GET-TAG TAG-CTR = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 2: Parse constructor with fields
+  ." Test 2: Constructor with fields #Cons{1,*}... "
+  S" #Cons{1, *}" LOAD-INPUT
+  PARSE-TERM ( term )
+  GET-TAG TAG-CTR = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
   THEN
 ;
 
@@ -972,4 +1110,6 @@ DEFER PARSE-TERM
   ." Token types defined: EOF=" TOK-EOF . ." IDENT=" TOK-IDENT . ." LAMBDA=" TOK-LAMBDA . CR
   TEST-TOKENIZER
   TEST-PARSER
+  TEST-U32-OP2
+  TEST-CTR
 ;

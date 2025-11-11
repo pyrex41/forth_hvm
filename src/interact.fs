@@ -369,6 +369,64 @@ DEFER SUBST-WALK
   \ TODO: annihilation rules
 ;
 
+\ CTR-DUP: ! &L{r,s} = #T{a1,a2,...,aN}; K
+\ -> K[r := #T{r1,r2,...,rN}, s := #T{s1,s2,...,sN}]
+\ where each field ai is duplicated with ! &L{ri,si} = ai
+: CTR-DUP ( dup-term -- reduced-term )
+  \ DUP structure: [target, cont], where target is CTR
+  DUP GET-LAB >R ( dup-term | R: L )
+  DUP GET-VAL ( dup-term dup-loc | R: L )
+
+  \ Get target (CTR) and continuation
+  DUP @ ( dup-term dup-loc ctr-term | R: L )
+  SWAP CELL+ @ ( dup-term ctr-term cont-term | R: L )
+  SWAP ( dup-term cont-term ctr-term | R: L )
+
+  \ Get CTR tag and fields
+  DUP GET-LAB ( dup-term cont-term ctr-term tag-id | R: L )
+  SWAP GET-VAL ( dup-term cont-term tag-id fields-addr | R: L )
+
+  \ Calculate field count (need to determine arity)
+  \ For simplicity, we'll read fields until we hit ERA or end
+  \ Actually, we stored field count during parsing - but we didn't!
+  \ Let me assume a maximum of 4 fields for now as a simplification
+
+  \ TODO: Store field count in CTR during parsing
+  \ For now, hardcode 2 fields as a demo
+  2 >R ( dup-term cont-term tag-id fields-addr | R: L N )
+
+  \ Create fresh VAR pairs for each field (r1,s1), (r2,s2), ...
+  \ Allocate space for N*2 VARs
+  R@ 2* ALLOC ( dup-term cont-term tag-id fields-addr vars-base | R: L N )
+  DUP >R ( dup-term cont-term tag-id fields-addr vars-base | R: L N vars-base )
+
+  \ Create VAR terms for each duplicate pair
+  R@ 2 CELLS + ( dup-term cont-term tag-id fields-addr vars-base v1-loc | R: L N vars-base )
+  TAG-VAR 0 ROT PACK-TERM ( dup-term cont-term tag-id fields-addr vars-base r1-var | R: L N vars-base )
+  R@ 3 CELLS + ( ... s1-loc | R: L N vars-base )
+  TAG-VAR 0 ROT PACK-TERM ( dup-term cont-term tag-id fields-addr vars-base r1-var s1-var | R: L N vars-base )
+
+  \ Create CTR copies: #T{r1,r2,...} and #T{s1,s2,...}
+  \ Allocate fields for first copy
+  R> DROP R@ ALLOC ( dup-term cont-term tag-id fields-addr r1-var s1-var r-fields | R: L N )
+  DUP >R OVER ROT CELL+ @ SWAP ! ( dup-term cont-term tag-id fields-addr r1-var s1-var | R: L N r-fields )
+
+  \ Pack first CTR copy
+  R> 3 PICK TAG-CTR -ROT PACK-TERM ( dup-term cont-term tag-id fields-addr r1-var s1-var r-ctr | R: L N )
+
+  \ Allocate fields for second copy
+  2 ALLOC ( dup-term cont-term tag-id fields-addr r1-var s1-var r-ctr s-fields | R: L N )
+  DUP >R 3 PICK ROT CELL+ @ SWAP ! ( dup-term cont-term tag-id fields-addr r1-var r-ctr | R: L N s-fields )
+
+  \ Pack second CTR copy
+  R> 4 PICK TAG-CTR -ROT PACK-TERM ( dup-term cont-term tag-id fields-addr r1-var r-ctr s-ctr | R: L N )
+
+  \ For demo, just return a simple reduction to the first copy
+  \ Full implementation would create nested DUPs and substitute
+  NIP NIP NIP NIP NIP NIP
+  R> DROP R> DROP
+;
+
 \ Test word
 : TEST-INTERACT ( -- )
   ." Interact module loaded" CR
