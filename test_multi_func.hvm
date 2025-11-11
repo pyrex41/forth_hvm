@@ -1,0 +1,3 @@
+id = *
+double = (+ @id @id)
+main = (@double 21)
