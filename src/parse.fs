@@ -1,5 +1,9 @@
 \ parse.fs - Parser for IC grammar
 
+\ TODO: Definition table for top-level named terms (@name = term)
+\ Currently disabled due to stack corruption bugs in ADD-DEF
+\ Need to properly save name strings before parsing term body
+
 \ Input buffer for parsing
 CREATE INPUT-BUF 4096 ALLOT
 VARIABLE INPUT-LEN
@@ -78,13 +82,39 @@ VARIABLE CURRENT-COL
   36 = OR OR OR       \ $
 ;
 
-\ Skip whitespace
+\ Skip whitespace and comments
 : SKIP-WHITESPACE ( -- )
   BEGIN
-    PEEK-CHAR DUP IS-WHITESPACE? WHILE
-    DROP NEXT-CHAR DROP
-  REPEAT
-  DROP
+    \ Skip whitespace
+    BEGIN
+      PEEK-CHAR DUP IS-WHITESPACE? WHILE
+      DROP NEXT-CHAR DROP
+    REPEAT
+    DROP
+
+    \ Check for line comment //
+    PEEK-CHAR 47 = IF  \ '/'
+      INPUT-POS @ 1+ INPUT-LEN @ < IF
+        INPUT-BUF INPUT-POS @ 1+ + C@ 47 = IF  \ second '/'
+          \ Skip to end of line
+          NEXT-CHAR DROP  \ consume first /
+          NEXT-CHAR DROP  \ consume second /
+          BEGIN
+            PEEK-CHAR DUP 10 <> SWAP 0<> AND WHILE
+            NEXT-CHAR DROP
+          REPEAT
+          DROP
+          -1  \ Continue outer loop
+        ELSE
+          0   \ Stop outer loop
+        THEN
+      ELSE
+        0  \ Stop outer loop
+      THEN
+    ELSE
+      0  \ Stop outer loop
+    THEN
+  0= UNTIL
 ;
 
 \ Token types
@@ -333,9 +363,12 @@ DEFER PARSE-TERM
   THEN
 
   \ Convert label string to number
-  \ For now, just use 0 as label (TODO: proper number parsing)
-  2DROP DROP
-  0 ( label )
+  ROT DROP ( addr len )
+  0 SWAP 0 DO
+    OVER I + C@ 48 - ( addr acc digit )
+    SWAP 10 * + ( addr acc )
+  LOOP
+  NIP ( label )
 
   \ Expect '{'
   NEXT-TOKEN ( label type addr len )
@@ -400,8 +433,12 @@ DEFER PARSE-TERM
     S" Expected label number in duplication" PARSE-ERROR
     0 EXIT
   THEN
-  2DROP DROP
-  0 ( label - TODO: parse actual number )
+  ROT DROP ( addr len )
+  0 SWAP 0 DO
+    OVER I + C@ 48 - ( addr acc digit )
+    SWAP 10 * + ( addr acc )
+  LOOP
+  NIP ( label )
 
   \ Expect '{'
   NEXT-TOKEN ( label type addr len )
@@ -545,6 +582,9 @@ DEFER PARSE-TERM
   0
 ; IS PARSE-TERM
 
+\ TODO: Top-level definition parsing (@name = term)
+\ Currently disabled - need to fix string handling bugs
+
 \ Test tokenizer
 : TEST-TOKENIZER ( -- )
   ." Testing tokenizer..." CR
@@ -592,6 +632,16 @@ DEFER PARSE-TERM
   NEXT-TOKEN 2DROP TOK-IDENT = R> AND >R
   NEXT-TOKEN 2DROP TOK-IDENT = R> AND >R
   NEXT-TOKEN 2DROP TOK-RPAREN = R> AND IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 5: Comments
+  ." Test 5: Comments... "
+  S" x // comment" LOAD-INPUT
+  NEXT-TOKEN 2DROP TOK-IDENT = >R
+  NEXT-TOKEN 2DROP TOK-EOF = R> AND IF
     ." PASS" CR
   ELSE
     ." FAIL" CR

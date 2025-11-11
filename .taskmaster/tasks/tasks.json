@@ -2,14 +2,14 @@
   "master": {
     "tasks": [
       {
-        "id": 0,
+        "id": "0",
         "title": "Setup HVM3 Baseline Environment",
         "description": "Clone HVM3 repo, build it, and verify examples run for baseline comparison.",
         "details": "Clone HVM3 from GitHub into 'hvm3' subfolder. Install GHC and Cabal if needed (macOS: 'brew install ghc cabal-install'). Build HVM3: 'cd hvm3 && cabal build'. Run sample: 'cabal run hvm -- run examples/bench_count.hvm -C -s' to generate baseline. Extract IC.md and INTERS.md for reference.",
         "testStrategy": "Verify HVM3 runs successfully and produces output. Check that examples/ directory contains .hvm files. Confirm IC.md and INTERS.md exist.",
         "priority": "critical",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -18,45 +18,59 @@
             "dependencies": [],
             "details": "Execute 'git clone https://github.com/HigherOrderCO/HVM3.git hvm3' in the project root. Verify the clone succeeded and examples directory exists.",
             "status": "pending",
-            "testStrategy": "Check that hvm3/ directory exists and contains examples/*.hvm files."
+            "testStrategy": "Check that hvm3/ directory exists and contains examples/*.hvm files.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Install Haskell Toolchain (macOS)",
             "description": "Install GHC and Cabal for building HVM3 on macOS.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Run 'brew install ghc cabal-install' to install Haskell toolchain. Verify installation with 'ghc --version' and 'cabal --version'.",
             "status": "pending",
-            "testStrategy": "Confirm ghc and cabal commands are available and output version numbers."
+            "testStrategy": "Confirm ghc and cabal commands are available and output version numbers.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Build HVM3",
             "description": "Build HVM3 using Cabal to generate the baseline runtime.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "Navigate to hvm3/ and run 'cabal update && cabal build'. Ensure build completes without errors.",
             "status": "pending",
-            "testStrategy": "Build succeeds and 'cabal run hvm -- --help' shows usage information."
+            "testStrategy": "Build succeeds and 'cabal run hvm -- --help' shows usage information.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Verify HVM3 Examples Run",
             "description": "Run sample HVM3 examples to establish baselines for comparison.",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "Run 'cabal run hvm -- run examples/bench_count.hvm -C -s' from hvm3/ directory. Capture output for baseline comparison. Test 2-3 other examples.",
             "status": "pending",
-            "testStrategy": "Examples run successfully and produce normalized output plus MIPS statistics."
+            "testStrategy": "Examples run successfully and produce normalized output plus MIPS statistics.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
             "title": "Extract Reference Documentation",
             "description": "Locate and extract IC.md and INTERS.md from HVM3 repo for implementation reference.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Find IC.md and INTERS.md in hvm3/ (likely in docs/ or root). Copy or symlink to project root for easy reference. Read both to understand term grammar and interaction rules.",
             "status": "pending",
-            "testStrategy": "Confirm both files are accessible and contain IC grammar and interaction rule specifications."
+            "testStrategy": "Confirm both files are accessible and contain IC grammar and interaction rule specifications.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2025-11-11T00:05:06.427Z"
       },
       {
         "id": 1,
@@ -65,8 +79,10 @@
         "details": "Install Gforth using 'brew install gforth' (macOS). Create src/ directory with files: fvm.fs (main include), core.fs (primitives like tags, ALLOC), parse.fs (parser), heap.fs (heap management), reduce.fs (WHNF), interact.fs (interaction rules), collapse.fs (normalization), book.fs (book loading), cli.fs (CLI), errors.fs (error handling). Use Gforth's include mechanism for modularity. Ensure portability with ANSI Forth where possible.",
         "testStrategy": "Verify Gforth installation by running 'gforth --version'. Test scaffold by including fvm.fs and checking for no errors.",
         "priority": "critical",
-        "dependencies": [0],
-        "status": "pending",
+        "dependencies": [
+          "0"
+        ],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -75,36 +91,50 @@
             "dependencies": [],
             "details": "Use Homebrew: 'brew install gforth'. Ensure the installation completes without errors and verify the version to confirm compatibility with ANSI Forth standards.",
             "status": "pending",
-            "testStrategy": "Run 'gforth --version' in the terminal and check that it outputs the version number without errors."
+            "testStrategy": "Run 'gforth --version' in the terminal and check that it outputs the version number without errors.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Create Project Directory Structure",
             "description": "Set up the initial directory for the project to organize all Forth source files and related assets.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Create 'src/' subdirectory in the project root for Forth source files. Create 'examples/' symlink to hvm3/examples for test data. Create 'tests/' directory for test scripts.",
             "status": "pending",
-            "testStrategy": "Navigate to src/ and confirm directory exists. Verify examples/ symlink points to hvm3/examples/."
+            "testStrategy": "Navigate to src/ and confirm directory exists. Verify examples/ symlink points to hvm3/examples/.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Create Main Include File (fvm.fs)",
             "description": "Develop the main include file that serves as the entry point for including all other modular Forth files.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "In src/, create 'fvm.fs' as the primary file that uses Gforth's include mechanism to load other modules. Include directives like 'include core.fs', 'include errors.fs', 'include parse.fs', etc., to ensure modularity and portability with ANSI Forth.",
             "status": "pending",
-            "testStrategy": "Attempt to include 'fvm.fs' in a Gforth session and check for any syntax errors or missing file errors, ensuring all includes are correctly referenced."
+            "testStrategy": "Attempt to include 'fvm.fs' in a Gforth session and check for any syntax errors or missing file errors, ensuring all includes are correctly referenced.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Create Stub Files for All Modules",
             "description": "Create empty/stub Forth files for all modules to ensure clean includes.",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "Create stub files in src/: core.fs, errors.fs, heap.fs, parse.fs, reduce.fs, interact.fs, collapse.fs, book.fs, cli.fs. Each should have a comment header describing its purpose and a simple test word (e.g., ': TEST-CORE .\" Core loaded\" CR ;').",
             "status": "pending",
-            "testStrategy": "Load 'fvm.fs' in Gforth and execute test words from each module to confirm all files load without errors."
+            "testStrategy": "Load 'fvm.fs' in Gforth and execute test words from each module to confirm all files load without errors.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "",
+        "updatedAt": "2025-11-11T00:05:08.475Z"
       },
       {
         "id": 2,
@@ -113,8 +143,10 @@
         "details": "In errors.fs, implement error reporting words: PARSE-ERROR, RUNTIME-ERROR, AFFINE-ERROR. Add stack trace capability and graceful error messages. Implement DEBUG? flag for verbose output. Add utility words for assertions and validation.",
         "testStrategy": "Test error reporting with intentional errors. Verify error messages are clear and include context (line numbers, token info).",
         "priority": "high",
-        "dependencies": [1],
-        "status": "pending",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -123,18 +155,26 @@
             "dependencies": [],
             "details": "Define PARSE-ERROR, RUNTIME-ERROR, AFFINE-ERROR words in errors.fs. Each should accept a string message and print formatted error with context. Include file/line info if available.",
             "status": "pending",
-            "testStrategy": "Test each error word manually to verify output format and program termination behavior."
+            "testStrategy": "Test each error word manually to verify output format and program termination behavior.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Add Debug and Trace Utilities",
             "description": "Implement debugging flags and trace output for development.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Add DEBUG? variable for verbose mode. Implement TRACE word for printing execution steps. Add ASSERT word for runtime validation. Create .TERM word for pretty-printing terms during debug.",
             "status": "pending",
-            "testStrategy": "Toggle DEBUG? and verify trace output appears/disappears. Test ASSERT with true/false conditions."
+            "testStrategy": "Toggle DEBUG? and verify trace output appears/disappears. Test ASSERT with true/false conditions.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down into subtasks for defining primitives, implementing heap allocation, and adding garbage collection.",
+        "updatedAt": "2025-11-11T00:05:11.478Z"
       },
       {
         "id": 3,
@@ -143,8 +183,10 @@
         "details": "In core.fs, define constants for all IC tags from IC.md (LAM, APP, SUP, DUP, VAR, ERA, CTR, U32, etc.). Implement term packing/unpacking words for Forth CELL size. In heap.fs, implement ALLOC word for circular buffer heap (4k-16k cells). Add simple mark-sweep GC: traverse stack for roots, mark reachable, sweep free. Start with manual GC trigger, add automatic later.",
         "testStrategy": "Unit test ALLOC by allocating and freeing cells, checking heap size. Test GC by forcing allocation until trigger, verify no leaks via heap stability. Test term pack/unpack roundtrip.",
         "priority": "high",
-        "dependencies": [2],
-        "status": "pending",
+        "dependencies": [
+          "2"
+        ],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -153,36 +195,50 @@
             "dependencies": [],
             "details": "Based on IC.md from HVM3, define all tag constants: TAG-LAM, TAG-APP, TAG-SUP, TAG-DUP, TAG-VAR, TAG-ERA, TAG-CTR, TAG-U32, TAG-OP2, TAG-REF. Use sequential numbering starting from 0.",
             "status": "pending",
-            "testStrategy": "Verify all tag constants are defined and have unique values. Print values to confirm."
+            "testStrategy": "Verify all tag constants are defined and have unique values. Print values to confirm.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement Term Packing/Unpacking",
             "description": "Create words to pack/unpack terms into Forth cells (tag:5b, lab:18b, val:40b or adapted to CELL size).",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define PACK-TERM ( tag lab val -- cell ) and UNPACK-TERM ( cell -- tag lab val ). Adapt bit layout to Forth's CELL size (32 or 64 bit). Add utility words: GET-TAG, GET-LAB, GET-VAL, SET-TAG, SET-LAB, SET-VAL.",
             "status": "pending",
-            "testStrategy": "Test roundtrip: pack then unpack should return original values. Test edge cases (max values for each field)."
+            "testStrategy": "Test roundtrip: pack then unpack should return original values. Test edge cases (max values for each field).",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement Basic Heap Allocation",
             "description": "Create heap buffer and ALLOC word for term storage.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "In heap.fs, CREATE HEAP 16384 CELLS ALLOT for 16k cell buffer. Implement HEAP-PTR variable for current allocation pointer. Define ALLOC ( n -- addr ) to allocate n cells and return address. Implement circular wraparound.",
             "status": "pending",
-            "testStrategy": "Allocate various sizes, verify addresses are valid and within HEAP bounds. Test wraparound at buffer end."
+            "testStrategy": "Allocate various sizes, verify addresses are valid and within HEAP bounds. Test wraparound at buffer end.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Implement Mark-Sweep Garbage Collection",
             "description": "Add GC with mark phase (traverse from roots) and sweep phase (free unmarked cells).",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "Create MARK-TABLE for tracking marked cells. Implement MARK-FROM-ROOT ( addr -- ) to recursively mark reachable terms. Implement SWEEP to free unmarked cells. Add GC-COLLECT word to trigger collection. Start with manual trigger.",
             "status": "pending",
-            "testStrategy": "Create terms, mark some as roots, run GC, verify unmarked terms are freed. Check heap stability after multiple GC cycles."
+            "testStrategy": "Create terms, mark some as roots, run GC, verify unmarked terms are freed. Check heap stability after multiple GC cycles.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Split into subtasks for creating the mapping structure and implementing substitution logic with affine checks.",
+        "updatedAt": "2025-11-11T00:05:13.842Z"
       },
       {
         "id": 4,
@@ -191,8 +247,10 @@
         "details": "In core.fs or new subst.fs, CREATE SUBST 1024 CELLS ALLOT for name->loc mapping. Implement hash-based lookup for efficiency. Add SUBST-PUT ( name loc -- ) and SUBST-GET ( name -- loc|0 ). Implement affine variable tracking: SUBST-USE ( name -- ) increments use count, error if >1. Add SUBST-CLEAR for scope cleanup.",
         "testStrategy": "Test with simple terms: parse 'λx.x', substitute x, verify correct loc. Check affine violations by attempting dup-use and assert error. Test hash collisions.",
         "priority": "medium",
-        "dependencies": [3],
-        "status": "pending",
+        "dependencies": [
+          "3"
+        ],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -201,18 +259,26 @@
             "dependencies": [],
             "details": "In subst.fs, CREATE SUBST 1024 CELLS ALLOT. Implement simple hash function for names. Structure: each entry is ( hash name-addr loc use-count ). Implement SUBST-HASH ( name-addr -- index ) for hashing.",
             "status": "pending",
-            "testStrategy": "Test hash function distributes names reasonably. Verify SUBST table is accessible."
+            "testStrategy": "Test hash function distributes names reasonably. Verify SUBST table is accessible.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement Substitution Operations",
             "description": "Create SUBST-PUT, SUBST-GET, and SUBST-USE words for managing substitutions.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Implement SUBST-PUT ( name-addr loc -- ) to store binding. Implement SUBST-GET ( name-addr -- loc|0 ) to retrieve binding. Implement SUBST-USE ( name-addr -- ) to track usage and enforce affine property (error if use-count > 1). Add SUBST-CLEAR to reset table.",
             "status": "pending",
-            "testStrategy": "Store bindings, retrieve them, verify correctness. Test affine enforcement: use variable twice should error. Test CLEAR resets table."
+            "testStrategy": "Store bindings, retrieve them, verify correctness. Test affine enforcement: use variable twice should error. Test CLEAR resets table.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Divide into subtasks for tokenization, parsing each term type (LAM, APP, etc.), handling global vars, and outputting to dict.",
+        "updatedAt": "2025-11-11T00:05:16.656Z"
       },
       {
         "id": 5,
@@ -221,64 +287,88 @@
         "details": "In parse.fs, implement tokenizer using Gforth's WORD or custom. Define PARSE-TERM as dispatcher. Start with minimal subset: PARSE-LAM (λx.body), PARSE-APP (@f x), PARSE-VAR (variable refs). Add error handling for malformed input. Output terms as heap-allocated structures. Defer full grammar (SUP, DUP, CTR, etc.) to later subtask.",
         "testStrategy": "Parse simple HVM files: 'λx.x', '(@(λx.x) y)'. Verify term structure in heap. Test error handling with invalid syntax. Compare parsed AST structure with HVM3.",
         "priority": "high",
-        "dependencies": [4],
-        "status": "pending",
+        "dependencies": [
+          "4"
+        ],
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
             "title": "Implement Tokenizer",
             "description": "Create tokenization system for reading HVM source.",
             "dependencies": [],
-            "details": "In parse.fs, implement NEXT-TOKEN ( -- addr len ) to read next token from input. Handle whitespace, comments, special chars (λ @ ( ) { }). Use Gforth's WORD or implement custom tokenizer with lookahead. Store current file/line for error reporting.",
+            "details": "In parse.fs, implement NEXT-TOKEN ( -- addr len ) to read next token from input. Handle whitespace, comments, special chars (λ @ ( ) { }). Use Gforth's WORD or implement custom tokenizer with lookahead. Store current file/line for error reporting.\n<info added on 2025-11-11T00:06:08.651Z>\nTokenizer fully implemented with all IC token types. 4 tokenizer tests passing. Location: parse.fs:90-227.\n</info added on 2025-11-11T00:06:08.651Z>",
             "status": "pending",
-            "testStrategy": "Feed test strings, verify tokens are correctly extracted including special characters and whitespace handling."
+            "testStrategy": "Feed test strings, verify tokens are correctly extracted including special characters and whitespace handling.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Parse Lambda Terms (LAM)",
-            "description": "Implement PARSE-LAM for lambda abstractions.",
-            "dependencies": [1],
-            "details": "Define PARSE-LAM to parse 'λx.body' syntax. Extract variable name, bind in SUBST, parse body recursively, create LAM term in heap with binding to body. Handle nested lambdas.",
+            "description": "Implement PARSE-LAM for lambda abstractions. [Updated: 11/10/2025]",
+            "dependencies": [
+              1
+            ],
+            "details": "Define PARSE-LAM to parse 'λx.body' syntax. Extract variable name, bind in SUBST, parse body recursively, create LAM term in heap with binding to body. Handle nested lambdas.\n<info added on 2025-11-11T00:06:13.627Z>\nPARSE-LAM implemented. Fixed stack manipulation bug (use 2 PICK). Location: parse.fs:247-286.\n</info added on 2025-11-11T00:06:13.627Z>",
             "status": "pending",
-            "testStrategy": "Parse 'λx.x', verify creates LAM term with correct variable binding. Test nested 'λx.λy.x'."
+            "testStrategy": "Parse 'λx.x', verify creates LAM term with correct variable binding. Test nested 'λx.λy.x'.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Parse Application Terms (APP)",
             "description": "Implement PARSE-APP for function application.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define PARSE-APP to parse '(@f x)' or '(f x)' syntax. Parse function and argument recursively, create APP term in heap linking to both. Handle multiple arguments as nested applications.",
             "status": "pending",
-            "testStrategy": "Parse '(@(λx.x) y)', verify creates APP with LAM and VAR children. Test multi-argument applications."
+            "testStrategy": "Parse '(@(λx.x) y)', verify creates APP with LAM and VAR children. Test multi-argument applications.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Parse Variable References (VAR)",
             "description": "Implement PARSE-VAR for variable lookups.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define PARSE-VAR to handle identifier tokens. Look up in SUBST map, create VAR term pointing to binding location. Error if unbound variable (unless forward ref allowed).",
             "status": "pending",
-            "testStrategy": "Parse 'λx.x', verify inner 'x' resolves to lambda binding. Test unbound variable errors."
+            "testStrategy": "Parse 'λx.x', verify inner 'x' resolves to lambda binding. Test unbound variable errors.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
             "title": "Add Error Recovery and Reporting",
             "description": "Integrate error handling into parser with helpful messages.",
-            "dependencies": [2, 3, 4],
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
             "details": "Wrap parse functions with error checking. Report file:line:column for errors. Give helpful messages like 'Expected λ or @ but got X'. Test with intentionally malformed input.",
             "status": "pending",
-            "testStrategy": "Parse invalid syntax, verify error messages are clear and include location information."
+            "testStrategy": "Parse invalid syntax, verify error messages are clear and include location information.",
+            "parentId": "undefined"
           },
           {
             "id": 6,
             "title": "Extend Parser for Full IC Grammar",
             "description": "Add support for SUP, DUP, ERA, CTR, U32, OP2 from IC.md.",
-            "dependencies": [5],
-            "details": "Add PARSE-SUP (superposition), PARSE-DUP (duplication), PARSE-ERA (erasure), PARSE-CTR (constructors), PARSE-U32 (numbers), PARSE-OP2 (binary ops). Reference IC.md for exact syntax. Update PARSE-TERM dispatcher.",
+            "dependencies": [
+              5
+            ],
+            "details": "Add PARSE-SUP (superposition), PARSE-DUP (duplication), PARSE-ERA (erasure), PARSE-CTR (constructors), PARSE-U32 (numbers), PARSE-OP2 (binary ops). Reference IC.md for exact syntax. Update PARSE-TERM dispatcher.\n<info added on 2025-11-11T00:06:19.328Z>\nExtended with ERA/SUP/DUP parsers. 10/10 tests passing. 80% complete. TODO: label numbers, top-level defs. parse.fs:317-497.\n</info added on 2025-11-11T00:06:19.328Z>",
             "status": "pending",
-            "testStrategy": "Parse examples using each construct. Verify term structures match HVM3. Test complex nested combinations."
+            "testStrategy": "Parse examples using each construct. Verify term structures match HVM3. Test complex nested combinations.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Separate into subtasks for loading and parsing books, and implementing global linking.",
+        "updatedAt": "2025-11-11T00:05:19.763Z"
       },
       {
         "id": 6,
@@ -287,7 +377,9 @@
         "details": "In book.fs, implement LOAD-BOOK ( filename -- ) to parse HVM file with multiple definitions. Store functions in dictionary with name, arity, and term pointer. Implement function lookup: FIND-FUN ( name -- term-addr|0 ). Handle forward references with two-pass: first collect definitions, then resolve refs. Support HVM's '@name' reference syntax.",
         "testStrategy": "Load HVM file with multiple functions. Verify dict entries correct. Test function calls resolve to definitions. Test forward references.",
         "priority": "medium",
-        "dependencies": [5],
+        "dependencies": [
+          "5"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -297,27 +389,37 @@
             "dependencies": [],
             "details": "In book.fs, CREATE BOOK-DICT 256 CELLS ALLOT for function storage. Each entry: ( name-addr arity term-addr ). Implement BOOK-PUT ( name arity term -- ) and BOOK-FIND ( name -- arity term | 0 0 ).",
             "status": "pending",
-            "testStrategy": "Store functions, retrieve them, verify all fields correct. Test name collision handling."
+            "testStrategy": "Store functions, retrieve them, verify all fields correct. Test name collision handling.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement Two-Pass Loading",
             "description": "Parse file in two passes: collect definitions, then resolve references.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "First pass: PARSE-DEF parses 'name = term' and stores in BOOK-DICT with term containing unresolved refs. Second pass: LINK-REFS traverses terms, replaces '@name' refs with term pointers using BOOK-FIND. Handle circular references.",
             "status": "pending",
-            "testStrategy": "Load file with forward refs. Verify second pass resolves all refs. Test mutual recursion."
+            "testStrategy": "Load file with forward refs. Verify second pass resolves all refs. Test mutual recursion.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement LOAD-BOOK Entry Point",
             "description": "Create main interface for loading HVM book files.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "Define LOAD-BOOK ( filename-addr len -- ) to open file, parse all definitions, link refs. Integrate with error handling for file not found, parse errors, unresolved refs. Set 'main' as entry point if present.",
             "status": "pending",
-            "testStrategy": "Load HVM3 example files. Verify all functions parsed and linked. Test error cases (missing file, undefined refs)."
+            "testStrategy": "Load HVM3 example files. Verify all functions parsed and linked. Test error cases (missing file, undefined refs).",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break into subtasks for defining WHNF loop, implementing IS-VALUE? checks, and adding interpreted mode."
       },
       {
         "id": 7,
@@ -326,7 +428,9 @@
         "details": "In reduce.fs, define WHNF ( term -- whnf-term ) as main reduction loop. Implement IS-VALUE? ( term -- flag ) to check for LAM/SUP/CTR (values that don't reduce further). Loop: repeatedly apply one interaction step until value or stuck. Implement INTERACT-STEP ( term -- term' ) that dispatches to appropriate interaction rule. Add iteration counter for stats.",
         "testStrategy": "Test WHNF on simple terms: '(@(λx.x) y)' should reduce to 'y'. Verify loop terminates on values. Test stuck terms (unresolved refs). Count interactions.",
         "priority": "high",
-        "dependencies": [6],
+        "dependencies": [
+          "6"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -336,27 +440,37 @@
             "dependencies": [],
             "details": "In reduce.fs, define IS-VALUE? ( term -- flag ) that checks term tag. Return TRUE for LAM, SUP, CTR (constructors). Return FALSE for APP, DUP (redexes that need reduction). Handle other tags appropriately.",
             "status": "pending",
-            "testStrategy": "Test with various term types. LAM/SUP/CTR should return TRUE, APP/DUP FALSE. Verify covers all IC tags."
+            "testStrategy": "Test with various term types. LAM/SUP/CTR should return TRUE, APP/DUP FALSE. Verify covers all IC tags.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement INTERACT-STEP Dispatcher",
             "description": "Create dispatcher that applies one interaction step based on term structure.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define INTERACT-STEP ( term -- term' ) that examines term tag and dispatches to specific interaction rules. For now, implement stub that returns term unchanged. Later tasks will add actual rules. Increment global ITR-COUNT counter.",
             "status": "pending",
-            "testStrategy": "Call INTERACT-STEP on terms, verify counter increments. Verify dispatcher doesn't crash on any term type."
+            "testStrategy": "Call INTERACT-STEP on terms, verify counter increments. Verify dispatcher doesn't crash on any term type.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement WHNF Reduction Loop",
             "description": "Create main reduction loop that reduces term to weak head normal form.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "Define WHNF ( term -- whnf-term ) as: BEGIN DUP IS-VALUE? 0= WHILE INTERACT-STEP REPEAT. Add iteration limit (e.g., 1M steps) to detect infinite loops. Add timeout check if needed.",
             "status": "pending",
-            "testStrategy": "Test with identity function applied to value (should terminate). Test with pure value (should return immediately). Test iteration limit with infinite loop."
+            "testStrategy": "Test with identity function applied to value (should terminate). Test with pure value (should return immediately). Test iteration limit with infinite loop.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 9,
+        "recommendedSubtasks": 6,
+        "expansionPrompt": "Create subtasks for each major interaction rule (e.g., APP-LAM, DUP-SUP) and adding compiled mode fast-paths."
       },
       {
         "id": 8,
@@ -365,7 +479,9 @@
         "details": "In interact.fs, implement essential rules: APP-LAM (beta reduction), APP-SUP, DUP-LAM, DUP-SUP, ANN-* (annihilation rules). Each rule: check if pattern matches, apply rewrite, return new term. Integrate with INTERACT-STEP dispatcher from Task 7. Reference INTERS.md for exact semantics. Start with interpreted mode (no optimization).",
         "testStrategy": "Unit test each rule individually with hand-crafted terms. Verify output matches expected rewrite. Test with HVM3 examples like bench_count.hvm. Compare reduction traces.",
         "priority": "high",
-        "dependencies": [7],
+        "dependencies": [
+          "7"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -375,54 +491,77 @@
             "dependencies": [],
             "details": "In interact.fs, define APP-LAM ( app-term -- reduced-term ). Check term is APP with LAM function. Extract lambda var, body, and argument. Substitute arg for var in body using SUBST mechanism. Return substituted body.",
             "status": "pending",
-            "testStrategy": "Test '(@(λx.x) y)' reduces to 'y'. Test '(@(λx.λy.x) a b)' reduces correctly with nested lambdas. Verify substitution handles variable capture."
+            "testStrategy": "Test '(@(λx.x) y)' reduces to 'y'. Test '(@(λx.λy.x) a b)' reduces correctly with nested lambdas. Verify substitution handles variable capture.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement DUP-SUP (Superposition Distribution)",
             "description": "Duplication interacting with superposition: distribute dup across sup branches.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define DUP-SUP rule per INTERS.md. If labels match, may annihilate. If labels differ, commute. Handle label comparison and branch distribution. Create new terms in heap as needed.",
             "status": "pending",
-            "testStrategy": "Test with examples from INTERS.md. Verify label matching logic. Test both annihilation and commutation paths."
+            "testStrategy": "Test with examples from INTERS.md. Verify label matching logic. Test both annihilation and commutation paths.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement DUP-LAM (Duplication of Lambda)",
             "description": "Duplicate lambda: creates two lambdas and threads dup into body.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define DUP-LAM per INTERS.md. Create two lambda copies with fresh labels. Insert dup of body inside. Handle variable binding correctly.",
             "status": "pending",
-            "testStrategy": "Test duplication creates correct structure. Verify both copies are independent. Test with nested lambdas."
+            "testStrategy": "Test duplication creates correct structure. Verify both copies are independent. Test with nested lambdas.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Implement APP-SUP (Application to Superposition)",
             "description": "Application to superposition: distribute application across branches.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define APP-SUP per INTERS.md. Create superposition of applications to each branch. Handle label threading correctly.",
             "status": "pending",
-            "testStrategy": "Test application distributes to both branches. Verify resulting superposition structure."
+            "testStrategy": "Test application distributes to both branches. Verify resulting superposition structure.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
             "title": "Implement Annihilation Rules",
             "description": "Implement ERA interactions: ANN-LAM, ANN-SUP, etc. for garbage collection.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define annihilation rules per INTERS.md. When dup meets sup with same label, annihilate. When era meets other terms, erase them. Return ERA or simplified term.",
             "status": "pending",
-            "testStrategy": "Test label matching triggers annihilation. Test era erases various term types. Verify no memory leaks."
+            "testStrategy": "Test label matching triggers annihilation. Test era erases various term types. Verify no memory leaks.",
+            "parentId": "undefined"
           },
           {
             "id": 6,
             "title": "Integrate Rules with INTERACT-STEP",
             "description": "Wire interaction rules into the dispatcher from Task 7.",
-            "dependencies": [1, 2, 3, 4, 5],
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
             "details": "Update INTERACT-STEP to check term structure and dispatch to appropriate rule. Priority order: APP-LAM, APP-SUP, DUP-LAM, DUP-SUP, annihilation. Return original term if no rule applies (stuck).",
             "status": "pending",
-            "testStrategy": "Test WHNF with terms triggering each rule. Verify correct rule is selected. Test term that needs multiple reductions."
+            "testStrategy": "Test WHNF with terms triggering each rule. Verify correct rule is selected. Test term that needs multiple reductions.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Split into subtasks for implementing collapse rules and adding renamer/pretty-printing."
       },
       {
         "id": 9,
@@ -431,7 +570,9 @@
         "details": "In interact.fs, add rules for constructors (CTR-DUP, CTR-APP), numbers (U32 operations), binary operations (OP2-*), and any remaining rules from INTERS.md. Ensure complete coverage of IC semantics. Add rule selection optimization if needed.",
         "testStrategy": "Test with HVM3 examples using each construct (bench_count for U32, enum examples for CTR). Verify all rules implemented. Check no missing cases.",
         "priority": "medium",
-        "dependencies": [8],
+        "dependencies": [
+          "8"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -441,7 +582,8 @@
             "dependencies": [],
             "details": "Define rules for constructor interactions per INTERS.md. CTR-DUP duplicates constructor and threads dup into fields. CTR-APP handles application to constructor (if applicable). Handle constructor matching.",
             "status": "pending",
-            "testStrategy": "Test with constructor examples. Verify duplication distributes correctly into fields. Test constructor matching."
+            "testStrategy": "Test with constructor examples. Verify duplication distributes correctly into fields. Test constructor matching.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -450,18 +592,26 @@
             "dependencies": [],
             "details": "Implement U32 arithmetic: OP2-ADD, OP2-MUL, OP2-SUB, etc. per INTERS.md. Handle constant folding. Implement overflow behavior matching HVM3.",
             "status": "pending",
-            "testStrategy": "Test arithmetic operations: '(+ 2 3)' reduces to '5'. Test overflow. Test OP2 with non-constant args."
+            "testStrategy": "Test arithmetic operations: '(+ 2 3)' reduces to '5'. Test overflow. Test OP2 with non-constant args.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Complete Rule Coverage",
             "description": "Implement any remaining rules from INTERS.md and verify completeness.",
-            "dependencies": [1, 2],
+            "dependencies": [
+              1,
+              2
+            ],
             "details": "Review INTERS.md for any missing rules. Implement REF handling, CAL (call) if present, and any other constructs. Create coverage matrix: rule x term-type.",
             "status": "pending",
-            "testStrategy": "Compare implemented rules against INTERS.md. Test examples covering all rules. Verify no unhandled cases remain."
+            "testStrategy": "Compare implemented rules against INTERS.md. Test examples covering all rules. Verify no unhandled cases remain.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Divide into subtasks for argument parsing and implementing run/serve modes with stats."
       },
       {
         "id": 10,
@@ -470,7 +620,9 @@
         "details": "In collapse.fs, implement full normalization: COLLAPSE ( term -- str ). Call WHNF first, then recursively reduce inside lambdas/ctrs (unlike WHNF which only reduces head). Implement SUP-LAM and other collapse-specific rules to eliminate all superpositions. Add RENAME pass for fresh variable names (α-conversion). Implement PRINT to output as λ-calculus string matching HVM3 format.",
         "testStrategy": "Test normalization on bench_cnots.hvm, assert output exactly matches HVM3: 'λa λb a'. Test examples with superpositions get fully collapsed. Verify pretty-print formatting.",
         "priority": "medium",
-        "dependencies": [9],
+        "dependencies": [
+          "9"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -480,36 +632,49 @@
             "dependencies": [],
             "details": "Define NORMALIZE ( term -- norm-term ) that, unlike WHNF, recursively reduces inside LAM bodies, CTR fields, etc. Visit all subterms and apply WHNF to each. Handle variable shadowing correctly.",
             "status": "pending",
-            "testStrategy": "Test 'λx.(@(λy.y) x)' normalizes to 'λx.x'. Verify reduction occurs inside lambda bodies."
+            "testStrategy": "Test 'λx.(@(λy.y) x)' normalizes to 'λx.x'. Verify reduction occurs inside lambda bodies.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement Collapse Rules for SUP Elimination",
             "description": "Add rules to eliminate superpositions during normalization (SUP-LAM, etc.).",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Implement collapse-specific rules per HVM3 collapse.hs. SUP-LAM floats superposition outside lambda. Handle label mismatches. Ensure all SUPs eliminated in normal form.",
             "status": "pending",
-            "testStrategy": "Test terms with superpositions normalize to pure λ-calculus. Verify no SUPs remain in output."
+            "testStrategy": "Test terms with superpositions normalize to pure λ-calculus. Verify no SUPs remain in output.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement Variable Renaming (α-conversion)",
             "description": "Add RENAME pass to generate fresh, readable variable names.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Implement RENAME ( term -- term' ) that assigns fresh names (a, b, c, ... aa, ab, ...) to bound variables. Maintain environment mapping old names to new. Handle nested scopes correctly. Match HVM3 naming convention.",
             "status": "pending",
-            "testStrategy": "Test renamed terms have consistent, readable names. Verify shadowing handled correctly. Compare with HVM3 output."
+            "testStrategy": "Test renamed terms have consistent, readable names. Verify shadowing handled correctly. Compare with HVM3 output.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Implement Pretty-Printer",
             "description": "Add PRINT to output normalized term as λ-calculus string.",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "Define PRINT ( term -- str ) that converts term to string. Format: 'λx body' for LAM, '(@f x)' for APP (or infix if appropriate). Match HVM3 output format exactly for test compatibility.",
             "status": "pending",
-            "testStrategy": "Print various terms, compare output with HVM3. Test bench_cnots.hvm produces 'λa λb a'. Verify formatting matches."
+            "testStrategy": "Print various terms, compare output with HVM3. Test bench_cnots.hvm produces 'λa λb a'. Verify formatting matches.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break into subtasks for creating test scripts, building Docker setup, and implementing benchmarking."
       },
       {
         "id": 11,
@@ -518,7 +683,9 @@
         "details": "In cli.fs, parse command-line args. Implement 'run' mode: ./fvm run file.hvm [-C compiled] [-s stats] [-Q quiet]. Load file via LOAD-BOOK, run 'main' function, normalize result, print output. Add -C flag stub for future compiled mode. Implement -s flag: print MIPS = ITRS / TIME using Gforth's UTIME. Add -Q flag for minimal output (just result). Defer 'serve' socket mode to later.",
         "testStrategy": "Test CLI: './fvm run examples/main.hvm', verify loads and runs. Test flags: -s shows stats, -Q suppresses verbose output. Test error handling (file not found).",
         "priority": "high",
-        "dependencies": [10],
+        "dependencies": [
+          "10"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -528,43 +695,59 @@
             "dependencies": [],
             "details": "In cli.fs, use Gforth's ARG to get command-line args. Parse: 'run' mode, filename, optional flags (-C, -s, -Q). Store parsed config in global variables. Handle invalid args with error message.",
             "status": "pending",
-            "testStrategy": "Test various argument combinations. Verify correct parsing. Test error on invalid args."
+            "testStrategy": "Test various argument combinations. Verify correct parsing. Test error on invalid args.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Implement Run Mode Execution",
             "description": "Load file, execute 'main', normalize, and print result.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Define RUN-FILE ( filename -- ) that calls LOAD-BOOK, finds 'main' function with BOOK-FIND, applies COLLAPSE, prints result. Handle missing 'main' error. Wrap in error handling.",
             "status": "pending",
-            "testStrategy": "Run simple HVM file with main function. Verify output matches expected normalized form. Test error when main missing."
+            "testStrategy": "Run simple HVM file with main function. Verify output matches expected normalized form. Test error when main missing.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Implement Statistics and Timing",
             "description": "Add -s flag support to print MIPS and timing statistics.",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "Use Gforth's UTIME to measure execution time. Calculate MIPS = ITR-COUNT @ / TIME. Print stats after result when -s flag set. Include: time, iterations, MIPS, heap usage.",
             "status": "pending",
-            "testStrategy": "Run with -s flag, verify stats printed. Compare MIPS with HVM3. Test timing accuracy."
+            "testStrategy": "Run with -s flag, verify stats printed. Compare MIPS with HVM3. Test timing accuracy.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Add Compiled Mode Flag (-C) Stub",
             "description": "Add -C flag that currently does nothing but is parsed for future use.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Parse -C flag and store in COMPILED? variable. Currently ignored, but will enable optimizations in future. Document as unimplemented in help text.",
             "status": "pending",
-            "testStrategy": "Test -C flag is accepted. Verify no error. Behavior identical to non-compiled for now."
+            "testStrategy": "Test -C flag is accepted. Verify no error. Behavior identical to non-compiled for now.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
             "title": "Create Main Entry Point and Help",
             "description": "Create main FORTH entry point and --help text.",
-            "dependencies": [1, 2, 3, 4],
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
             "details": "Create MAIN word that parses args and dispatches to mode. Add --help flag with usage text. Create shell script 'fvm' that calls 'gforth fvm.fs -e main -e bye'. Make executable.",
             "status": "pending",
-            "testStrategy": "Run './fvm --help', verify usage shown. Test './fvm run file.hvm' works end-to-end. Test error cases."
+            "testStrategy": "Run './fvm --help', verify usage shown. Test './fvm run file.hvm' works end-to-end. Test error cases.",
+            "parentId": "undefined"
           }
         ]
       },
@@ -575,7 +758,9 @@
         "details": "Create tests/test.sh that iterates examples/*.hvm, runs both HVM3 and FVM, compares normalized output strings. For each file: run 'cabal run hvm -- run $file -C -Q' for baseline, run './fvm run $file -Q' for FVM output, compare strings exactly. Report PASS/FAIL for each. Exit 1 if any fail. Add verbose mode showing diffs.",
         "testStrategy": "Run test.sh on subset of examples manually. Verify comparison logic correct. Test with intentionally wrong output to verify detection. Run full suite.",
         "priority": "high",
-        "dependencies": [11],
+        "dependencies": [
+          "11"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -585,25 +770,32 @@
             "dependencies": [],
             "details": "Create tests/test.sh with function test_file() that takes .hvm file, runs HVM3, captures output, runs FVM, captures output, compares strings. Return 0 if match, 1 if differ. Handle errors (file not found, execution failure).",
             "status": "pending",
-            "testStrategy": "Test script with simple file. Verify comparison works. Test with differing outputs to ensure detection."
+            "testStrategy": "Test script with simple file. Verify comparison works. Test with differing outputs to ensure detection.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
             "title": "Add Test Suite Runner",
             "description": "Extend script to run all examples and report results.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Add loop over hvm3/examples/*.hvm. Run test_file() for each. Track pass/fail counts. Print summary. Support -v verbose flag showing diffs. Support -f <file> to run single test.",
             "status": "pending",
-            "testStrategy": "Run on full examples/ directory. Verify all tests run. Check pass/fail counts correct. Test verbose mode."
+            "testStrategy": "Run on full examples/ directory. Verify all tests run. Check pass/fail counts correct. Test verbose mode.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
             "title": "Generate Baseline Cache",
             "description": "Optionally cache HVM3 outputs to speed up repeated testing.",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Add --generate-baselines flag that runs HVM3 on all examples, saves outputs to tests/baselines/. Update comparison to use cached baselines if present. Add --refresh-baselines to regenerate.",
             "status": "pending",
-            "testStrategy": "Generate baselines, verify files created. Run tests using cache, verify faster. Test refresh regenerates correctly."
+            "testStrategy": "Generate baselines, verify files created. Run tests using cache, verify faster. Test refresh regenerates correctly.",
+            "parentId": "undefined"
           }
         ]
       },
@@ -614,7 +806,9 @@
         "details": "Run test.sh on all HVM3 examples, fix failures iteratively. Create bench.sh for performance testing: run each bench_*.hvm, measure MIPS, compare with HVM3. Target ≥50% perf initially (80% is stretch goal). Create Dockerfile with Gforth, GHC, project files. Document build/run process. Generate performance report.",
         "testStrategy": "Achieve 100% pass rate on functional tests. Benchmark shows reasonable performance (≥50% HVM3). Docker build succeeds and runs tests. Performance report generated.",
         "priority": "high",
-        "dependencies": [12],
+        "dependencies": [
+          "12"
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -624,7 +818,8 @@
             "dependencies": [],
             "details": "Run tests/test.sh. For each failure, debug: print FVM output, compare with HVM3, trace execution if needed. Fix bugs in parser/reducer/rules. Iterate until all tests pass. Track progress: X/Y tests passing.",
             "status": "pending",
-            "testStrategy": "Achieve 100% pass rate. Document any remaining issues or test exclusions."
+            "testStrategy": "Achieve 100% pass rate. Document any remaining issues or test exclusions.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -633,7 +828,8 @@
             "dependencies": [],
             "details": "Create tests/bench.sh that runs bench_*.hvm examples with both HVM3 and FVM. Capture MIPS from -s output. Calculate FVM/HVM3 ratio. Run 3 times, take average. Generate report: table of benchmarks with MIPS comparison. Target ≥50% performance.",
             "status": "pending",
-            "testStrategy": "Run benchmarks, verify MIPS calculated correctly. Check if achieving ≥50% target. Identify performance bottlenecks."
+            "testStrategy": "Run benchmarks, verify MIPS calculated correctly. Check if achieving ≥50% target. Identify performance bottlenecks.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -642,24 +838,35 @@
             "dependencies": [],
             "details": "Create Dockerfile: FROM ubuntu:24.04, install gforth ghc cabal-install. COPY project files and hvm3/. Build HVM3. Set up scripts. CMD runs test.sh. Add docker-compose.yml if needed. Document: docker build -t fvm . && docker run --rm fvm.",
             "status": "pending",
-            "testStrategy": "Build Docker image successfully. Run container, verify tests execute. Test on different machine to confirm reproducibility."
+            "testStrategy": "Build Docker image successfully. Run container, verify tests execute. Test on different machine to confirm reproducibility.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
             "title": "Generate Performance Report",
             "description": "Create comprehensive report with test results and benchmarks.",
-            "dependencies": [1, 2],
+            "dependencies": [
+              1,
+              2
+            ],
             "details": "Generate REPORT.md with: test pass rate, benchmark MIPS table, FVM/HVM3 performance ratios, heap usage stats, code size metrics. Include charts if possible. Identify areas for optimization. Document limitations.",
             "status": "pending",
-            "testStrategy": "Review report for completeness. Verify metrics accurate. Use report to guide optimizations."
+            "testStrategy": "Review report for completeness. Verify metrics accurate. Use report to guide optimizations.",
+            "parentId": "undefined"
           }
         ]
       }
     ],
     "metadata": {
-      "created": "2025-11-10T21:36:39.394Z",
-      "updated": "2025-11-10T22:15:00.000Z",
-      "description": "Updated tasks for master context with macOS compatibility, error handling, and incremental scope"
+      "version": "1.0.0",
+      "lastModified": "2025-11-11T00:05:19.763Z",
+      "taskCount": 14,
+      "completedCount": 5,
+      "tags": [
+        "master"
+      ],
+      "created": "2025-11-11T00:06:05.894Z",
+      "description": "Tasks for master context"
     }
   }
 }
