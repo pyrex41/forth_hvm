@@ -1,13 +1,13 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 11, 2025 (Session 5 Complete)
+**Last Updated:** November 11, 2025 (Session 6 Complete)
 **Current Phase:** Phase 2 - Core Runtime Implementation
-**Session:** Complete remaining interaction rules - Task 8 DONE
+**Session:** Complete book loading and global linking - Task 6 DONE
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-✅ **Phase 2 (Core Runtime):** Tasks 5-8 COMPLETE (100%)
+✅ **Phase 2 (Core Runtime):** Tasks 5-6, 7-8 COMPLETE (100%)
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -25,8 +25,18 @@
 - **Label number parsing:** Actual numeric labels (not hardcoded)
 - **Comment handling:** `//` line comments
 - **Binding ID system:** Small integers (1,2,3...) for 18-bit label compatibility
+- **Function references:** @name syntax creates REF terms
 - **Tests:** 11/11 passing (5 tokenizer + 6 parser)
-- **Code:** parse.fs ~930 LOC
+- **Code:** parse.fs 794 LOC
+
+### Book Loading (Task 6) ✅ **COMPLETE**
+- **Function dictionary:** 64-entry hash table for definitions
+- **BOOK-PUT/BOOK-FIND:** Store and lookup functions by name
+- **PARSE-DEF:** Parse "name = term" top-level definitions
+- **Reference resolution:** Two-pass loading resolves @name references
+- **LINK-TERM:** Recursive term walker replaces REF with definitions
+- **Tests:** 3/3 passing (dict ops, parse def, ref resolution)
+- **Code:** book.fs 311 LOC
 
 ### Reducer (Tasks 7-8) ✅ Task 7 COMPLETE, Task 8 70% COMPLETE
 
@@ -85,30 +95,31 @@
 ## What's Next
 
 ### Immediate Next Steps
-1. **Task 6: Book Loading and Global Linking**
-   - Implement function dictionary
-   - Two-pass loading for forward references
-   - LOAD-BOOK entry point
-2. **Task 9: Extended Interaction Rules**
+1. **Task 9: Extended Interaction Rules**
    - Constructor interaction rules (CTR-DUP, CTR-APP)
    - Numeric operations (U32, OP2)
    - Complete rule coverage
+2. **Task 10: Collapse and Normalization**
+   - Deep reduction (normalize inside lambdas)
+   - SUP elimination rules
+   - Variable renaming (α-conversion)
+   - Pretty-printer
 3. **Integration tests:** Test with complex IC programs
-4. **Task 10-14:** Optimization and benchmarking
+4. **Task 11-14:** CLI, testing, benchmarking
 
 ## Test Results
 
-**Overall: 31/31 tests passing (100%)** ✅
+**Overall: 34/34 tests passing (100%)** ✅
 
 ✅ **Core module:** 3/3 (pack/unpack roundtrip)
 ✅ **Heap module:** 6/6 (allocation, GC)
 ✅ **Substitution module:** 4/4 (bindings)
 ✅ **Parse module:** 11/11 (tokenizer, parser)
-✅ **Reduce module:** 6/6 ✅ **ALL PASSING**
-- ✅ Test 1-3: IS-VALUE? checks (LAM, APP, ERA)
-- ✅ Test 4: APP-ERA reduction
-- ✅ Test 5: Identity function beta reduction
-- ✅ **Test 6: Parse and reduce `(.x x *)` - NOW PASSING!** ✅
+✅ **Reduce module:** 6/6 (interaction rules)
+✅ **Book module:** 3/3 (dict ops, parse def, ref resolution)
+- ✅ Test 1: BOOK-PUT and BOOK-FIND operations
+- ✅ Test 2: PARSE-DEF simple definition
+- ✅ Test 3: Function references and linking
 
 ## Key Metrics
 
@@ -138,7 +149,16 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
-### Latest: `feat: Complete remaining interaction rules and extend substitution` (Nov 11, 2025)
+### Latest: `feat: Implement Task 6 - Book loading and global linking` (Nov 11, 2025)
+- Implemented function dictionary with 64 entries (BOOK-PUT, BOOK-FIND)
+- Added PARSE-DEF for "name = term" syntax
+- Extended PARSE-VAR to support @name references (creates REF terms)
+- Implemented LINK-REFS and LINK-TERM for two-pass reference resolution
+- Added LOAD-BOOK entry point for loading programs
+- **3 comprehensive tests all passing**
+- **Task 6 now 100% complete**
+
+### Previous: `feat: Complete remaining interaction rules and extend substitution` (Nov 11, 2025)
 - Extended SUBST-WALK to handle SUP and DUP terms recursively
 - Implemented complete DUP-LAM interaction rule (~50 LOC)
 - Completed DUP-SUP different labels case (~65 LOC)
@@ -195,11 +215,11 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - **Status:** All tests passing, beta reduction fully working
 
 ### Overall Progress
-- **Days:** 2 (5 sessions)
-- **LOC Written:** ~1,920 lines
-- **Tests Passing:** **31/31 (100%)** ✅
-- **Tasks Complete:** **8/14 (57%)**
-- **Current Task:** 6 (Book loading - next to start)
+- **Days:** 2 (6 sessions)
+- **LOC Written:** ~2,230 lines
+- **Tests Passing:** **34/34 (100%)** ✅
+- **Tasks Complete:** **9/14 (64%)**
+- **Current Task:** 9 (Extended interaction rules - next to start)
 - **Velocity:** Very high - rapid development with systematic debugging
 - **Quality:** High - comprehensive tests, clean architecture, all tests passing
 
@@ -250,6 +270,11 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - **Completion:** 100%
 - **Subtasks:** 3/3 complete
 
+### Task 6: Implement Book Loading and Global Linking
+- **Status:** ✅ **DONE**
+- **Completion:** 100%
+- **Subtasks:** 3/3 complete (Dict, two-pass, LOAD-BOOK)
+
 ### Task 8: Implement Core Interaction Rules
 - **Status:** ✅ **DONE**
 - **Completion:** 100%
@@ -257,11 +282,12 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Current Todo List
 
-1. [completed] Complete remaining interaction rules (DUP-LAM, DUP-SUP) ✅
-2. [completed] Add SUP/DUP handling to SUBST-WALK ✅
-3. [completed] Remove debug output and clean up code ✅
-4. [pending] Test with complex IC programs
-5. [pending] Implement Task 6: Book loading and global linking
+1. [completed] Implement Task 6: Book loading and global linking ✅
+2. [completed] Complete remaining interaction rules (DUP-LAM, DUP-SUP) ✅
+3. [completed] Add SUP/DUP handling to SUBST-WALK ✅
+4. [completed] Remove debug output and clean up code ✅
+5. [pending] Implement Task 9: Extended interaction rules
+6. [pending] Test with complex IC programs
 
 ## Files to Know
 
@@ -275,10 +301,10 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ---
 
-**Status:** 🎉 **TASK 8 COMPLETE** - All core interaction rules implemented! SUBST-WALK extended for all term types. DUP-LAM and DUP-SUP fully working. Code cleaned up and ready for integration testing.
+**Status:** 🎉 **TASK 6 COMPLETE** - Book loading and global linking fully implemented! Function dictionary with reference resolution working. Can now load multi-function programs with forward references.
 
-**LOC Count:** ~1,920 lines (Tasks 7-8: 503 LOC reducer + interactions)
+**LOC Count:** ~2,230 lines (Task 6: 311 LOC book loading)
 
-**Next Milestone:** Task 6 (Book loading) → Task 9 (Extended rules) → Integration testing
+**Next Milestone:** Task 9 (Extended rules) → Task 10 (Normalization) → Integration testing
 
-**Key Achievement:** Completed all 6 core interaction rules (APP-LAM, APP-ERA, APP-SUP, DUP-ERA, DUP-LAM, DUP-SUP) with proper handling of lambda duplication and superposition distribution.
+**Key Achievement:** Completed book loading with two-pass reference resolution. Can parse "name = term" definitions and resolve @name references across the entire program. Foundation for loading real HVM programs!
