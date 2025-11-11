@@ -1,5 +1,56 @@
 # Pattern Matching Implementation Plan
 
+## ✅ Implementation Status (Current)
+
+### Completed Features
+1. **✅ Numeric pattern matching** (0:, 1+p: cases)
+   - Parses `~n { 0: a, 1+p: b }` syntax
+   - TAG-MATCH term type with runtime reduction
+   - MATCH-REDUCE function handles zero/successor cases
+   - Variable binding for successor case (p = n-1)
+
+2. **✅ HVM3 syntax compatibility**
+   - Underscore separators in numbers: `2_000_000_000`
+   - Strict evaluation syntax: `!n` in lambda parameters
+   - Strict evaluation before match: `~n !k` (parsed, marker ignored)
+
+3. **✅ Test cases**
+   - test_match.hvm: Basic pattern matching
+   - bench_count_simple.hvm: Simplified version
+   - bench_count_100.hvm: Small test (n=100)
+   - bench_count_hvm3.hvm: Original HVM3 file (n=2 billion)
+
+### Can Now Run
+- ✅ HVM3 bench_count.hvm (exact file, no modifications!)
+- ✅ Any program with numeric pattern matching
+- ✅ Programs using underscore number literals
+- ✅ Programs using strict evaluation annotations
+
+### Remaining Work for Full Coverage
+1. **❌ Constructor patterns** (#Nil:, #Cons{h t}:)
+   - Requires new MATCH-CTR term type or extended MATCH
+   - Need to check constructor tag and extract fields
+   - Complexity: ~400-600 LOC
+
+2. **❌ Wildcard patterns** (_:)
+   - Catch-all case for any pattern
+   - Simple to add once constructors work
+   - Complexity: ~50-100 LOC
+
+3. **❌ Multiple cases** (> 2 branches)
+   - Current: binary patterns (0:, 1+p:)
+   - Full: arbitrary number of cases
+   - Complexity: ~200-300 LOC
+
+4. **❌ Nested patterns** (patterns inside case bodies)
+   - Already works naturally through recursion
+   - No additional implementation needed
+
+5. **❌ Data declarations** (data Nat { #Z #S{pred} })
+   - Optional: not needed for execution
+   - Could document types externally
+   - Complexity: ~100-200 LOC if implemented
+
 ## Pattern Syntax Analysis
 
 ### From HVM3 Examples
