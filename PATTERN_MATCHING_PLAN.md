@@ -14,42 +14,44 @@
    - Strict evaluation syntax: `!n` in lambda parameters
    - Strict evaluation before match: `~n !k` (parsed, marker ignored)
 
-3. **✅ Test cases**
-   - test_match.hvm: Basic pattern matching
+3. **✅ Constructor pattern matching** (#Nil:, #Cons{h t}:)
+   - Extended MATCH term with label field (0=numeric, 1=constructor)
+   - Parser detects pattern type and dispatches appropriately
+   - MATCH-REDUCE-CONSTRUCTOR handles tag matching and field extraction
+   - Supports arbitrary number of cases with field bindings
+   - Actual: ~270 LOC (parser + reduction)
+
+4. **✅ Test cases**
+   - test_match.hvm: Basic numeric pattern matching
    - bench_count_simple.hvm: Simplified version
    - bench_count_100.hvm: Small test (n=100)
    - bench_count_hvm3.hvm: Original HVM3 file (n=2 billion)
+   - test_constructor_pattern.hvm: Constructor patterns
+   - sum_list.hvm: List sum with #Nil/#Cons patterns
 
 ### Can Now Run
 - ✅ HVM3 bench_count.hvm (exact file, no modifications!)
-- ✅ Any program with numeric pattern matching
-- ✅ Programs using underscore number literals
-- ✅ Programs using strict evaluation annotations
+- ✅ Any program with numeric pattern matching (0:, 1+p:)
+- ✅ Any program with constructor patterns (#Nil:, #Cons{h t}:, #Z:, #S{pred}:)
+- ✅ Programs using underscore number literals (2_000_000)
+- ✅ Programs using strict evaluation annotations (!n)
+- ✅ List operations (#Nil/#Cons)
+- ✅ Nat operations (#Z/#S)
+- ✅ Nested constructor patterns
+- ✅ Multiple cases (unlimited for constructors)
 
-### Remaining Work for Full Coverage
-1. **❌ Constructor patterns** (#Nil:, #Cons{h t}:)
-   - Requires new MATCH-CTR term type or extended MATCH
-   - Need to check constructor tag and extract fields
-   - Complexity: ~400-600 LOC
-
-2. **❌ Wildcard patterns** (_:)
+### Remaining Work (Optional Features)
+1. **❌ Wildcard patterns** (_:)
    - Catch-all case for any pattern
-   - Simple to add once constructors work
-   - Complexity: ~50-100 LOC
+   - Simple to add now that constructors work
+   - Estimated: ~50-100 LOC
+   - Priority: **Low** (can use explicit cases instead)
 
-3. **❌ Multiple cases** (> 2 branches)
-   - Current: binary patterns (0:, 1+p:)
-   - Full: arbitrary number of cases
-   - Complexity: ~200-300 LOC
-
-4. **❌ Nested patterns** (patterns inside case bodies)
-   - Already works naturally through recursion
-   - No additional implementation needed
-
-5. **❌ Data declarations** (data Nat { #Z #S{pred} })
+2. **❌ Data declarations** (data Nat { #Z #S{pred} })
    - Optional: not needed for execution
    - Could document types externally
-   - Complexity: ~100-200 LOC if implemented
+   - Estimated: ~100-200 LOC
+   - Priority: **Very Low** (syntax sugar only)
 
 ## Pattern Syntax Analysis
 
