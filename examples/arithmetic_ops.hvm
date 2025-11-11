@@ -1,0 +1,22 @@
+// Comprehensive arithmetic operations test
+// Tests all binary operations
+
+add_test = (+ 10 20)
+sub_test = (- 50 30)
+mul_test = (* 6 7)
+div_test = (/ 100 4)
+mod_test = (% 17 5)
+
+and_test = (& 15 7)
+or_test = (| 8 4)
+xor_test = (^ 12 5)
+
+lt_test = (< 5 10)
+gt_test = (> 20 15)
+eq_test = (== 42 42)
+
+// Nested operations: (10 + 20) * 2
+nested = (* (+ 10 20) 2)
+
+// Main: test nested arithmetic
+main = nested

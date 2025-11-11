@@ -1,8 +1,8 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 11, 2025 (Session 8 Complete)
-**Current Phase:** Phase 4 - Normalization and Testing
-**Session:** Tasks 9, 10, 11 complete! (Full IC + Normalization + CLI)
+**Last Updated:** November 11, 2025 (Session 8 In Progress)
+**Current Phase:** Phase 5 - Integration Testing
+**Session:** Tasks 9, 10, 11, 13 (partial) complete!
 
 ## Quick Status
 
@@ -10,7 +10,8 @@
 ✅ **Phase 2 (Core Runtime):** Tasks 5-9 COMPLETE (Full IC grammar!)
 ✅ **Phase 3 (CLI):** Task 11 COMPLETE
 ✅ **Phase 4 (Normalization):** Task 10 COMPLETE
-⏳ **Phase 5-6:** Tasks 12-14 Remaining
+🔄 **Phase 5 (Testing):** Task 13 IN PROGRESS (Integration test suite created)
+⏳ **Phase 6:** Tasks 12, 14 Remaining
 
 ## What's Working
 
@@ -95,6 +96,22 @@
 - ✅ **CLI Integration:** -N flag for full normalization
 - **Code:** reduce.fs +173 LOC, cli.fs +60 LOC (pretty-printer)
 - **Example:** normalize_test.hvm demonstrates WHNF vs normalization
+
+### Integration Test Suite (Task 13) 🔄 **IN PROGRESS**
+- ✅ **Test Programs Created:** Comprehensive test suite
+  - church_numerals.hvm: Church encoding tests
+  - combinators.hvm: SKI combinator calculus
+  - superposition.hvm: Non-determinism and SUP tests
+  - arithmetic_ops.hvm: All 16 binary operations
+  - constructors.hvm: CTR parsing and operations
+  - benchmark.hvm: Performance testing
+- ✅ **Automated Test Runner:** run_tests.sh
+  - Color-coded output (PASS/FAIL)
+  - Statistics display for each test
+  - Summary report with pass/fail counts
+  - 10 comprehensive integration tests
+- **Status:** Test suite created, ready for execution
+- **Code:** 6 new test programs + test runner script
 
 ### Reducer (Tasks 7-8) ✅ BOTH COMPLETE
 
@@ -223,6 +240,9 @@ cd src && gforth fvm.fs -e 'TEST-REDUCE bye'
 
 # Show help
 ./fvm --help
+
+# Run integration test suite (NEW!)
+./run_tests.sh
 
 # Direct Gforth usage
 cd src && gforth fvm.fs -e '-s -N S" ../examples/test_add.hvm" RUN-FILE bye'

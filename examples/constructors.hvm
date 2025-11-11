@@ -1,0 +1,14 @@
+// Constructor test
+// Test CTR parsing and operations
+
+// Empty constructor
+nil = #Nil{}
+
+// Constructor with fields
+cons = #Cons{1, 2}
+
+// Nested constructors
+nested = #Pair{#Left{10}, #Right{20}}
+
+// Main: return nested constructor
+main = nested

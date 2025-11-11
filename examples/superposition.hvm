@@ -1,0 +1,10 @@
+// Superposition and duplication test
+// Test non-determinism and duplication rules
+
+// Create a superposition of two values
+pair = &0{1, 2}
+
+// Duplicate it - should create nested DUPs
+// !&0{a,b} = &0{1,2}; result
+// becomes result[a:=1, b:=2] which is &0{1,2}
+main = pair
