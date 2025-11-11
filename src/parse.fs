@@ -5,10 +5,13 @@
 \ Need to properly save name strings before parsing term body
 
 \ Input buffer for parsing
-CREATE INPUT-BUF 4096 ALLOT
+4096 CONSTANT MAX-INPUT-LEN
+CREATE INPUT-BUF MAX-INPUT-LEN ALLOT
 VARIABLE INPUT-LEN
 VARIABLE INPUT-POS
+VARIABLE TOKEN-POS
 0 INPUT-POS !
+0 TOKEN-POS !
 
 \ Binding ID counter (for LAM/VAR labels that fit in 18 bits)
 VARIABLE BIND-ID
@@ -1032,8 +1035,11 @@ DEFER PARSE-TERM
   TAG-MATCH 0 ROT PACK-TERM
 ;
 
+\ Forward declaration for recursive call
+DEFER PARSE-CTR
+
 \ Parse constructor: #Tag{field1, field2, ...}
-: PARSE-CTR ( -- term )
+:NONAME ( -- term )
   \ Expect tag identifier
   NEXT-TOKEN ( type addr len )
   2 PICK TOK-IDENT <> IF
@@ -1137,7 +1143,7 @@ DEFER PARSE-TERM
 
   \ Create CTR term: TAG-CTR lab=tag-id val=fields-addr
   TAG-CTR R> R> PACK-TERM
-;
+; IS PARSE-CTR
 
 \ Main term parser (dispatcher)
 :NONAME ( -- term )

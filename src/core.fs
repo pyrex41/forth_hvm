@@ -55,6 +55,11 @@ $1FFFFFFFFFF CONSTANT VAL-MASK  \ 41 bits: 2199023255551
   VAL-SHIFT RSHIFT VAL-MASK AND
 ;
 
+\ Helper word: subtract one cell size from address
+: CELL- ( addr -- addr-CELL )
+  [ 1 CELLS ] LITERAL -
+;
+
 \ Test pack/unpack roundtrip
 : TEST-PACK-UNPACK ( -- )
   ." Testing pack/unpack roundtrip..." CR

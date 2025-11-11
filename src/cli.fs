@@ -155,6 +155,9 @@ DEFER .TERM
   DROP DROP ." <unknown>"
 ; IS .TERM
 
+\ Forward declaration for PRINT-STATS
+DEFER PRINT-STATS
+
 \ Run mode
 : RUN-FILE ( c-addr u -- )
   \ Load file into INPUT-BUF
@@ -215,7 +218,7 @@ DEFER .TERM
 ;
 
 \ Statistics display
-: PRINT-STATS ( -- )
+:NONAME ( -- )
   STATS? @ IF
     CR
     ." ────────────────────────────" CR
@@ -241,7 +244,7 @@ DEFER .TERM
 
     ." ────────────────────────────" CR
   THEN
-;
+; IS PRINT-STATS
 
 \ Set statistics flag
 : -s ( -- )
@@ -269,7 +272,7 @@ DEFER .TERM
 : MAIN ( -- )
   PARSE-ARGS
   ." ForthVM CLI ready" CR
-  ." Use: S\" file.hvm\" RUN" CR
+  ." Use: S" 34 EMIT ."  file.hvm" 34 EMIT ."  RUN" CR
 ;
 
 \ Help text
@@ -283,7 +286,7 @@ DEFER .TERM
   ." In Gforth:" CR
   ."   -s                    \ Enable stats" CR
   ."   -N                    \ Enable normalization" CR
-  ."   S\" file.hvm\" RUN      \ Run file" CR
+  ."   S" 34 EMIT ."  file.hvm" 34 EMIT ."  RUN      \ Run file" CR
 ;
 
 \ Test word

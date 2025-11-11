@@ -94,7 +94,7 @@ DEFER SUBST-WALK
   DROP R> R> 2DROP ( term )
 ; IS SUBST-WALK
 
-: APP-LAM ( app-term -- reduced-term )
+:NONAME ( app-term -- reduced-term )
   \ Beta reduction: (λx.body arg) -> body[x:=arg]
   \ APP term has: fun-ptr at val, arg-ptr at val+CELL
   DUP GET-VAL ( app-term app-loc )
@@ -112,9 +112,9 @@ DEFER SUBST-WALK
   SUBST-WALK ( app-term body-term' )
 
   NIP ( body-term' )
-;
+; IS APP-LAM
 
-: DUP-ERA ( dup-term -- reduced-term )
+:NONAME ( dup-term -- reduced-term )
   \ ! &L{r,s} = *; K -> K[r:=*,s:=*]
   \ DUP term structure: val points to [dup-target, continuation]
   DUP GET-VAL ( dup-term dup-loc )
@@ -123,9 +123,9 @@ DEFER SUBST-WALK
   \ For now, just return continuation
   \ TODO: Properly substitute r and s with ERA in continuation
   NIP ( cont-term )
-;
+; IS DUP-ERA
 
-: DUP-SUP ( dup-term -- reduced-term )
+:NONAME ( dup-term -- reduced-term )
   \ ! &L{x,y} = &L{a,b}; K -> x <- a, y <- b, K (same label)
   \ ! &L{x,y} = &R{a,b}; K -> distribute (different labels)
 
@@ -212,9 +212,9 @@ DEFER SUBST-WALK
     \ Clean up and return the chained DUP structure
     NIP NIP NIP NIP NIP ( dup-a )
   THEN
-;
+; IS DUP-SUP
 
-: DUP-LAM ( dup-term -- reduced-term )
+:NONAME ( dup-term -- reduced-term )
   \ ! &L{r,s} = λx.f; K
   \ -> r <- λx0.f0, s <- λx1.f1, x <- &L{x0,x1}, ! &L{f0,f1} = f; K
   \ Create two lambda copies with fresh bindings and substitute variable with SUP
@@ -265,9 +265,9 @@ DEFER SUBST-WALK
 
   \ Clean up stack and return result-sup
   NIP NIP ( result-sup )
-;
+; IS DUP-LAM
 
-: APP-SUP ( app-term -- reduced-term )
+:NONAME ( app-term -- reduced-term )
   \ (&L{a,b} c) -> ! &L{c0,c1} = c; &L{(a c0),(b c1)}
   \ This creates a duplication of the argument
   DUP GET-VAL ( app-term app-loc )
@@ -343,10 +343,10 @@ DEFER SUBST-WALK
   DUP 14 = IF DROP = IF -1 ELSE 0 THEN EXIT THEN  \ EQ
   DUP 15 = IF DROP <> IF -1 ELSE 0 THEN EXIT THEN  \ NE
   DROP 2DROP 0  \ Unknown opcode
-;
+; IS APP-SUP
 
 \ OP2-U32: Reduce OP2 with two U32 operands
-: OP2-U32 ( op2-term -- reduced-term )
+:NONAME ( op2-term -- reduced-term )
   \ OP2 term structure: val points to [lhs, rhs], lab=opcode
   DUP GET-LAB >R ( op2-term | R: opcode )
   GET-VAL ( op2-loc | R: opcode )
@@ -363,7 +363,7 @@ DEFER SUBST-WALK
     \ Not both U32 - cannot reduce yet
     2DROP R> DROP 0
   THEN
-;
+; IS OP2-U32
 
 : ANNIHILATE ( term -- simplified-term )
   \ TODO: annihilation rules
@@ -372,7 +372,7 @@ DEFER SUBST-WALK
 \ CTR-DUP: ! &L{r,s} = #T{a1,a2,...,aN}; K
 \ -> K[r := #T{r1,r2,...,rN}, s := #T{s1,s2,...,sN}]
 \ where each field ai is duplicated with ! &L{ri,si} = ai
-: CTR-DUP ( dup-term -- reduced-term )
+:NONAME ( dup-term -- reduced-term )
   \ DUP structure: [target, cont], where target is CTR
   DUP GET-LAB >R ( dup-term | R: L )
   DUP GET-VAL ( dup-term dup-loc | R: L )
@@ -425,7 +425,7 @@ DEFER SUBST-WALK
   \ Full implementation would create nested DUPs and substitute
   NIP NIP NIP NIP NIP NIP
   R> DROP R> DROP
-;
+; IS CTR-DUP
 
 \ MATCH-REDUCE-CONSTRUCTOR: Pattern matching on constructors
 \ ~xs { #Nil: e1, #Cons{h t}: e2 }
@@ -545,7 +545,7 @@ DEFER SUBST-WALK
 
 \ MATCH-REDUCE: Pattern matching dispatcher
 \ Checks label to determine numeric (0) or constructor (1) pattern
-: MATCH-REDUCE ( match-term -- reduced-term )
+:NONAME ( match-term -- reduced-term )
   \ Check pattern type from label
   DUP GET-LAB ( match-term pattern-type )
   1 = IF
@@ -611,10 +611,7 @@ DEFER SUBST-WALK
   R> ( succ-bind-id p-term succ-body )
   -ROT ( succ-body succ-bind-id p-term )
   SUBST-WALK ( succ-body' )
-
-  \ Clean up and return
-  R> DROP ( succ-body' )
-;
+; IS MATCH-REDUCE
 
 \ Test word
 : TEST-INTERACT ( -- )

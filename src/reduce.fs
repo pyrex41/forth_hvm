@@ -1,5 +1,15 @@
 \ reduce.fs - WHNF reduction loop
 
+\ Forward declarations for interaction rules (defined in interact.fs)
+DEFER APP-LAM
+DEFER APP-SUP
+DEFER DUP-ERA
+DEFER DUP-LAM
+DEFER DUP-SUP
+DEFER CTR-DUP
+DEFER OP2-U32
+DEFER MATCH-REDUCE
+
 \ Iteration counter for stats
 VARIABLE ITR-COUNT
 0 ITR-COUNT !
@@ -104,6 +114,9 @@ VARIABLE ITR-COUNT
 \ ========================================
 \ NORMALIZATION (Deep reduction)
 \ ========================================
+
+\ Forward declaration for recursive normalization
+DEFER NORMALIZE
 
 \ Normalize inside lambda body
 : NORMALIZE-LAM ( lam-term -- normalized-lam )
@@ -230,8 +243,6 @@ VARIABLE ITR-COUNT
 
 \ Main normalization function
 \ First reduces to WHNF, then normalizes recursively based on term type
-DEFER NORMALIZE
-
 :NONAME ( term -- normalized-term )
   \ First, reduce to WHNF
   WHNF

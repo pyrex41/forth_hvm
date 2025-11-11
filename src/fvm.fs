@@ -7,8 +7,8 @@ include core.fs
 include heap.fs
 include subst.fs
 include parse.fs
-include interact.fs
 include reduce.fs
+include interact.fs
 include collapse.fs
 include book.fs
 include cli.fs
