@@ -1,12 +1,21 @@
 # ForthVM Current Progress
 
-**Last Updated:** January 11, 2025 (Final Session - Full OP2 Verification Complete!)
-**Project Status:** 🟢 Excellent Progress - All OP2 Operators Verified Working!
+**Last Updated:** January 11, 2025 (Multi-Function Support Implemented!)
+**Project Status:** 🟢 Excellent Progress - Multi-Function HVM Files Now Supported!
 **Completion:** ~95% of core IC functionality
 
 ---
 
-## Recent Accomplishments (January 11, 2025 - Final Session)
+## Recent Accomplishments (January 11, 2025 - Multi-Function Session)
+
+### 🎉 Multi-Function Support IMPLEMENTED
+- ✅ **Fixed NAME-BUF limitation** - Each function now has heap-allocated name storage
+- ✅ **test_multi_func.hvm WORKS** - Successfully loads 3 functions (id, double, main)
+- ✅ **No regressions** - All existing tests still pass
+- ✅ **Root cause**: BOOK-PUT was storing direct pointer to NAME-BUF instead of copying
+- ✅ **Solution**: Implement heap allocation + CMOVE for each function name (src/book.fs:23-64)
+
+## Previous Accomplishments (January 11, 2025 - Earlier Sessions)
 
 ### 🎉 Bug #20 COMPLETELY RESOLVED - REF Name Storage Order Fixed
 - ✅ **test_simple.hvm NOW WORKS** - Correctly evaluates `main = 5` → Result: 5
