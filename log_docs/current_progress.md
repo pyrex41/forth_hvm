@@ -1,14 +1,13 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 10, 2025 (Late Night - Checkpoint 2)
+**Last Updated:** November 10, 2025 (Late Night - Session 4 Complete)
 **Current Phase:** Phase 2 - Core Runtime Implementation
-**Session:** Extended debugging and implementation session
+**Session:** Critical bug fix session - LAM binding and beta reduction
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-✅ **Phase 2 (Core Runtime):** Task 5 (Parser) - COMPLETE
-🔄 **Phase 2 (Core Runtime):** Tasks 7-8 (Reducer) - 70% COMPLETE
+✅ **Phase 2 (Core Runtime):** Tasks 5-7 COMPLETE, Task 8 70% COMPLETE
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -25,25 +24,28 @@
 - **Full IC grammar parsing:** LAM/APP/VAR, ERA/SUP/DUP
 - **Label number parsing:** Actual numeric labels (not hardcoded)
 - **Comment handling:** `//` line comments
+- **Binding ID system:** Small integers (1,2,3...) for 18-bit label compatibility
 - **Tests:** 11/11 passing (5 tokenizer + 6 parser)
-- **Code:** parse.fs ~915 LOC
+- **Code:** parse.fs ~930 LOC
 
-### Reducer (Tasks 7-8) 🔄 **70% COMPLETE**
+### Reducer (Tasks 7-8) ✅ Task 7 COMPLETE, Task 8 70% COMPLETE
 
-#### Task 7: WHNF Loop & Dispatcher ✅ **90% Complete**
+#### Task 7: WHNF Loop & Dispatcher ✅ **COMPLETE**
 - ✅ IS-VALUE? predicate (LAM, SUP, ERA, U32, CTR)
 - ✅ WHNF reduction loop implemented
 - ✅ INTERACT-STEP dispatcher (APP and DUP cases)
 - ✅ Iteration counter for statistics
-- ✅ 3/3 basic tests passing
+- ✅ All tests passing
 
 #### Task 8: Core Interaction Rules 🔄 **70% Complete**
-**Implemented:**
-- ✅ **APP-LAM** (~60 LOC) - Beta reduction with SUBST-WALK
+**Implemented and Working:**
+- ✅ **APP-LAM** (~60 LOC) - Beta reduction with SUBST-WALK ✅ **FULLY WORKING**
   - Recursive substitution helper using DEFER/IS pattern
-  - Handles VAR/LAM/APP substitution
-  - **Status:** 90% - Currently debugging LAM body storage issue
-- ✅ **APP-ERA** - Erasure application `(* a) -> *`
+  - Handles VAR/LAM/APP substitution correctly
+  - **CRITICAL FIX:** Uses BIND-ID system (1,2,3...) instead of heap addresses
+  - Fixed stack manipulation bugs in return value handling
+  - **Status:** 100% - All tests passing, beta reduction working perfectly
+- ✅ **APP-ERA** - Erasure application `(* a) -> *` ✅ **COMPLETE**
 - ✅ **APP-SUP** (~50 LOC) - Superposition application (scaffolding)
   - Creates fresh VAR nodes
   - Builds DUP node for argument distribution
@@ -53,65 +55,60 @@
   - Different labels: distribution (stubbed)
 - 🔄 **DUP-LAM** (~5 LOC) - Lambda duplication (stub only)
 
-**Parser Bugs Fixed (Critical):**
-1. ✅ PARSE-APP stack corruption (was dropping function and argument terms)
-2. ✅ PARSE-APP memory layout (was storing `[arg,fun]` instead of `[fun,arg]`)
-3. ✅ PARSE-LAM binding location (was using `lab=0` instead of actual binding)
+**Critical Bugs Fixed (Session 4):**
+1. ✅ **Binding ID System** - Replaced heap addresses with small sequential IDs (1,2,3...)
+   - Root cause: Heap addresses require 33+ bits, but label field only has 18 bits
+   - Solution: BIND-ID counter generates small integers that fit
+   - Impact: Fixed all variable binding and beta reduction
+2. ✅ **PARSE-LAM packing order** - Fixed stack order before PACK-TERM (added SWAP)
+   - Was packing `(tag lab=heap val=bind-id)` - WRONG
+   - Now packs `(tag lab=bind-id val=heap)` - CORRECT
+3. ✅ **SUBST-WALK return** - Fixed return stack manipulation to return arg-term
+   - Was returning var-loc (wrong)
+   - Now returns arg-term (correct)
+4. ✅ **APP-LAM stack manipulation** - Completely rewrote to fix complex stack juggling
+   - Proper extraction of fun-term, arg-term, var-loc, body-term
+   - Correct stack for SUBST-WALK invocation
 
 **Code Statistics:**
-- reduce.fs: 167 LOC (was 116) +51 LOC
-- interact.fs: 176 LOC (was 63) +113 LOC
+- reduce.fs: 167 LOC
+- interact.fs: 176 LOC (cleaned up debug output)
+- parse.fs: ~930 LOC (added BIND-ID system)
 - Total reducer: 343 LOC
 
 ## What's Next
 
-### CRITICAL: Debug LAM Body Storage (In Progress)
-**Issue:** Parser stores LAM body as 0 in heap, causing crash during beta reduction
-**Evidence:**
-- Debug shows: `[LAM: term=44264413326682368]` (correct packed term)
-- But: `[LAM-val=0]` and `[APP-LAM body=0]` when fetching from heap
-- SUBST-WALK crashes with "Invalid memory address" at `@` operation
+### Immediate Next Steps
+1. **Complete remaining interaction rules:** DUP-LAM, full DUP-SUP, full APP-SUP
+2. **Add SUP/DUP to SUBST-WALK:** Recursive substitution for these constructs
+3. **Remove debug output:** Clean up all temporary debug printing (some remains in parse.fs)
+4. **Integration tests:** Test with complex IC programs
 
-**Investigation Plan:**
-1. Add debug to PARSE-LAM before/after store operation
-2. Verify heap location validity
-3. Check if SUBST-PUT corrupts body-term
-4. Investigate variable unbinding timing
-
-### Task 7-8 Remaining Work (30%)
-- ⏳ Debug and fix LAM body storage issue
-- ⏳ Remove all debug output and clean up code
-- ⏳ Complete DUP-LAM full implementation
-- ⏳ Complete DUP-SUP different labels case
-- ⏳ Add SUP/DUP handling to SUBST-WALK
-- ⏳ Write comprehensive integration tests
-- ⏳ Test with complex IC programs
-
-### Next Tasks (Blocked on Task 7-8)
-- Task 6: Book loading and global linking
+### Task 6-9 Remaining Work
+- Task 6: Book loading and global linking (blocked on Task 7-8)
 - Task 9: Extended interaction rules (numbers, operations)
 - Task 10-14: Optimization and benchmarking
 
 ## Test Results
 
-**Overall: 30/31 tests passing (96.8%)**
+**Overall: 31/31 tests passing (100%)** ✅
 
 ✅ **Core module:** 3/3 (pack/unpack roundtrip)
 ✅ **Heap module:** 6/6 (allocation, GC)
 ✅ **Substitution module:** 4/4 (bindings)
 ✅ **Parse module:** 11/11 (tokenizer, parser)
-🔄 **Reduce module:** 5/6
+✅ **Reduce module:** 6/6 ✅ **ALL PASSING**
 - ✅ Test 1-3: IS-VALUE? checks (LAM, APP, ERA)
 - ✅ Test 4: APP-ERA reduction
 - ✅ Test 5: Identity function beta reduction
-- ❌ Test 6: Parse and reduce `(.x x *)` - **Times out in beta reduction**
+- ✅ **Test 6: Parse and reduce `(.x x *)` - NOW PASSING!** ✅
 
 ## Key Metrics
 
 - **Baseline:** 12.7 MIPS (HVM3 on bench_cnots.hvm)
 - **Initial Target:** ≥6.4 MIPS (50%)
 - **Stretch Target:** ≥10.2 MIPS (80%)
-- **Current:** Not yet benchmarkable (debugging phase)
+- **Current:** Not yet benchmarkable (still in development)
 
 ## Commands
 
@@ -134,30 +131,25 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
-### Latest: `feat: Implement core interaction rules and fix parser bugs` (Nov 10, 2025)
+### Latest: `fix: Resolve critical LAM binding and beta reduction bugs` (Nov 10, 2025)
+- Added BIND-ID counter for 18-bit-compatible variable bindings
+- Fixed PARSE-LAM to pack bind-id in label, heap-loc in value
+- Fixed SUBST-WALK to return arg-term instead of var-loc
+- Rewrote APP-LAM stack manipulation for correct substitution
+- **All 31 tests now passing (was 30/31)**
+- **Status:** Critical bug fixed, beta reduction fully working
+
+### Previous: `feat: Implement core interaction rules and fix parser bugs` (Nov 10, 2025)
 - APP-LAM with SUBST-WALK recursive substitution (~60 LOC)
 - APP-SUP superposition application (~50 LOC)
 - DUP-SUP with label matching (~30 LOC)
 - Fixed 3 critical parser bugs
 - Added 3 new reduction tests
-- reduce.fs: 167 LOC, interact.fs: 176 LOC
-- **Status:** 70% reducer complete, debugging storage issue
 
-### Previous: `feat: Implement Task 6 reducer scaffolding` (Nov 10, 2025)
+### Earlier: `feat: Implement Task 6 reducer scaffolding` (Nov 10, 2025)
 - WHNF reduction loop with IS-VALUE? check
 - Interaction dispatcher for APP and DUP
 - Basic APP-LAM, APP-ERA, DUP-ERA rules
-- reduce.fs: 116 LOC, interact.fs: 63 LOC
-
-### Earlier: `feat: Add label parsing and comment handling` (Nov 10, 2025)
-- Parse actual numeric labels (not hardcoded)
-- Handle `//` line comments
-- 11 tests passing (5 tokenizer + 6 parser)
-- parse.fs: ~900 LOC
-
-### Earlier: `feat: Complete full IC grammar parser` (Nov 10, 2025)
-- Added ERA, SUP, DUP parsers (+256 LOC)
-- All 10 tests passing (4 tokenizer + 6 parser)
 
 ## Progress Trajectory
 
@@ -178,16 +170,23 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - **Achievement:** APP-LAM with substitution, APP-SUP, DUP-SUP, fixed 3 parser bugs
 - **LOC:** +164 (interact +113, reduce +51)
 - **Tests:** 30/31 passing (96.8%)
-- **Status:** Debugging LAM body storage
+- **Status:** Beta reduction timing out, storage issue identified
+
+### Session 4 (Nov 10, Late Night - Part 2) ✅ **BREAKTHROUGH**
+- **Focus:** Debug and fix critical LAM binding bug
+- **Achievement:** Fixed fundamental design flaw in variable binding
+- **LOC:** +12 net (parse +23, interact -11)
+- **Tests:** **31/31 passing (100%)** ✅
+- **Status:** All tests passing, beta reduction fully working
 
 ### Overall Progress
-- **Days:** 1 (multiple sessions)
-- **LOC Written:** ~1,750 lines
-- **Tests Passing:** 30/31 (96.8%)
-- **Tasks Complete:** 6/14 (43%)
-- **Current Task:** 7-8 (70% complete)
-- **Velocity:** Very high - major features implemented rapidly
-- **Quality:** High - comprehensive tests, good architecture
+- **Days:** 1 (4 sessions)
+- **LOC Written:** ~1,760 lines
+- **Tests Passing:** **31/31 (100%)** ✅
+- **Tasks Complete:** **7/14 (50%)**
+- **Current Task:** 8 (70% complete)
+- **Velocity:** Very high - rapid development with systematic debugging
+- **Quality:** High - comprehensive tests, clean architecture, all tests passing
 
 ## Architecture Notes
 
@@ -195,7 +194,7 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - Recursive descent parser
 - Token-based with lookahead
 - Heap allocation for complex terms (APP, SUP, DUP, LAM)
-- Variable scope managed through substitution map
+- **Variable scope:** BIND-ID system (1,2,3...) for 18-bit label compatibility
 - Clean separation: tokenizer → parser → term construction
 
 ### Reducer Design
@@ -210,14 +209,16 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - Heap-allocated structures for complex terms
 - Pointer-based linking between terms
 - GC support with mark-sweep
+- **CRITICAL:** Label field limited to 18 bits (max 262,143)
+
+### Variable Binding System (New!)
+- **BIND-ID counter:** Generates small sequential IDs (1, 2, 3...)
+- **LAM terms:** Store bind-id in label, heap location in value
+- **VAR terms:** Store bind-id in value
+- **Substitution:** Match VAR's bind-id with LAM's bind-id
+- **Advantage:** IDs fit in 18-bit label field (heap addresses don't)
 
 ## Known Issues
-
-### Critical (Blocking)
-1. **LAM body storage bug** - Parser stores 0 instead of body term
-   - Impact: Beta reduction crashes
-   - Status: Under investigation
-   - Priority: P0 - blocking all reduction tests
 
 ### Non-Critical (TODOs)
 1. Top-level definition parsing (`@name = term`) - deferred
@@ -225,42 +226,43 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 3. DUP-LAM full implementation - stubbed
 4. DUP-SUP different labels case - stubbed
 5. SUP/DUP in SUBST-WALK - not implemented
-6. Debug output cleanup - needed before production
+6. Debug output cleanup - needed before production (some removed, some remains)
 
 ## Task-Master Status
 
 ### Task 7: Implement Reducer and WHNF Loop
-- **Status:** In Progress → **Should mark DONE**
-- **Completion:** 90%
-- **Subtasks:** 3/3 complete (all updated with implementation notes)
+- **Status:** ✅ **DONE**
+- **Completion:** 100%
+- **Subtasks:** 3/3 complete
 
 ### Task 8: Implement Core Interaction Rules
-- **Status:** Pending → **Should mark In Progress**
+- **Status:** ▶ **In Progress**
 - **Completion:** 70%
-- **Subtasks:** 3/6 updated with implementation notes
+- **Subtasks:** 2/6 complete (APP-LAM, APP-ERA)
 
 ## Current Todo List
 
-1. [pending] Debug LAM body storage issue (parser stores 0)
-2. [pending] Remove debug output and clean up code
-3. [pending] Complete DUP-LAM full implementation
-4. [pending] Complete DUP-SUP different labels case
-5. [pending] Add SUP/DUP handling to SUBST-WALK
-6. [pending] Test with complex IC programs
+1. [pending] Complete remaining interaction rules (DUP-LAM, DUP-SUP)
+2. [pending] Add SUP/DUP handling to SUBST-WALK
+3. [pending] Remove debug output and clean up code
+4. [pending] Test with complex IC programs
 
 ## Files to Know
 
-- `.taskmaster/tasks/tasks.json` - 14 tasks with subtasks (updated)
+- `.taskmaster/tasks/tasks.json` - 14 tasks with subtasks
 - `STATUS.md` - Detailed status and next steps
 - `README.md` - Project overview
-- `log_docs/PROJECT_LOG_2025-11-10_task7-8-reducer-debugging.md` - Latest session log
-- `log_docs/PROJECT_LOG_2025-11-10_task5-task6-reducer.md` - Previous session
+- `log_docs/PROJECT_LOG_2025-11-10_critical-lam-binding-fix.md` - **Latest session log**
+- `log_docs/PROJECT_LOG_2025-11-10_task7-8-reducer-debugging.md` - Previous session
+- `log_docs/PROJECT_LOG_2025-11-10_task5-task6-reducer.md` - Reducer scaffolding
 - `log_docs/PROJECT_LOG_2025-11-10_parser-ic-grammar.md` - Parser implementation
 
 ---
 
-**Status:** Reducer 70% complete with active debugging session. Core interaction rules framework solid, parser bugs fixed, integration working. Critical LAM body storage bug under investigation. Once resolved, reducer will be functionally complete and ready for optimization. 🔧
+**Status:** 🎉 **BREAKTHROUGH SESSION** - Critical LAM binding bug fixed! All 31 tests passing. Beta reduction fully working. Variable substitution working correctly. Ready to complete remaining interaction rules.
 
-**LOC Count:** ~1,750 lines (Tasks 7-8: 343 LOC reducer + interactions)
+**LOC Count:** ~1,760 lines (Tasks 7-8: 343 LOC reducer + interactions)
 
-**Next Milestone:** Fix storage bug → Complete remaining interaction rules → Benchmark performance → Optimize hot paths
+**Next Milestone:** Complete remaining interaction rules → Full Task 8 → Move to Task 9 (extended rules)
+
+**Key Achievement:** Solved fundamental design flaw in variable binding by introducing BIND-ID counter system, enabling proper beta reduction with 18-bit label field constraints.
