@@ -178,14 +178,19 @@ VARIABLE TOKEN-TYPE
   TOK-IDENT TOKEN-TYPE !
 ;
 
-\ Read number token
+\ Read number token (supports underscores like 2_000_000)
 : READ-NUMBER ( -- )
   0 TOKEN-LEN !
   BEGIN
-    PEEK-CHAR DUP IS-DIGIT? WHILE
+    PEEK-CHAR
+    DUP IS-DIGIT? OVER 95 = OR WHILE  \ Accept digits and underscore (95 = '_')
     NEXT-CHAR
-    TOKEN-BUF TOKEN-LEN @ + C!
-    TOKEN-LEN @ 1+ TOKEN-LEN !
+    DUP 95 <> IF  \ Only store non-underscore characters
+      TOKEN-BUF TOKEN-LEN @ + C!
+      TOKEN-LEN @ 1+ TOKEN-LEN !
+    ELSE
+      DROP  \ Skip underscores
+    THEN
   REPEAT
   DROP
   TOK-NUMBER TOKEN-TYPE !
@@ -360,10 +365,17 @@ DEFER PARSE-TERM
   TAG-VAR 0 ROT PACK-TERM
 ;
 
-\ Parse lambda: λx body
+\ Parse lambda: λx body or λ!x body (strict evaluation)
 : PARSE-LAM ( -- term )
-  \ Expect identifier for parameter name
+  \ Optionally consume '!' for strict evaluation
   NEXT-TOKEN ( type addr len )
+  2 PICK TOK-BANG = IF
+    \ Skip strict evaluation marker - treat same as regular param
+    2DROP DROP
+    NEXT-TOKEN ( type addr len )
+  THEN
+
+  \ Expect identifier for parameter name
   2 PICK TOK-IDENT <> IF
     2DROP DROP
     S" Expected identifier after λ" PARSE-ERROR
