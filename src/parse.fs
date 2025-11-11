@@ -276,8 +276,28 @@ VARIABLE TOKEN-TYPE
 \ Forward declaration for recursive parsing
 DEFER PARSE-TERM
 
-\ Parse variable reference
+\ Parse variable or function reference
 : PARSE-VAR ( c-addr u -- term )
+  \ Check if it starts with '@' (function reference)
+  OVER C@ 64 = IF  \ ASCII '@' = 64
+    \ Function reference: @name
+    \ Skip the '@' character
+    SWAP 1+ SWAP 1- ( c-addr+1 u-1 )
+
+    \ Allocate heap space for name (2 cells: addr, len)
+    2 ALLOC ( c-addr u ref-loc )
+    DUP >R ( c-addr u ref-loc | R: ref-loc )
+
+    \ Store name address and length
+    TUCK ! ( c-addr ref-loc | R: ref-loc )
+    CELL+ ! ( | R: ref-loc )
+
+    \ Create REF term: tag=REF, lab=0, val=ref-loc
+    TAG-REF 0 R> PACK-TERM
+    EXIT
+  THEN
+
+  \ Otherwise, it's a variable reference
   \ Look up variable in substitution map
   SUBST-GET DUP 0= IF
     DROP
@@ -286,7 +306,6 @@ DEFER PARSE-TERM
   THEN
 
   \ Create VAR term: VAR has val=location
-  \ TAG-VAR 0 location PACK-TERM
   TAG-VAR 0 ROT PACK-TERM
 ;
 
