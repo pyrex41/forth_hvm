@@ -79,6 +79,10 @@ run_test_verbose "examples/normalize_test.hvm" "Normalization test"
 
 # Multi-function programs
 run_test_verbose "examples/arithmetic.hvm" "Multi-function program"
+run_test_verbose "examples/factorial.hvm" "Factorial computation"
+
+# Performance benchmark
+run_test_verbose "examples/benchmark.hvm" "Performance benchmark"
 
 echo ""
 echo "========================================="
