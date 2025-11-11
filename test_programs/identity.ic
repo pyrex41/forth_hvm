@@ -1,0 +1,3 @@
+// Test: Identity function
+// (λx.x ERA) should reduce to ERA
+(.x x *)

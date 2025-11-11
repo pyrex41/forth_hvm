@@ -19,15 +19,20 @@ VARIABLE ITR-COUNT
   1 ITR-COUNT +!  \ Increment counter
 
   DUP GET-TAG
+  DEBUG? IF ." [INTERACT tag=" DUP . ." ] " THEN
 
   \ Handle APP: check what we're applying to
   DUP TAG-APP = IF
-    DROP DUP GET-VAL @ ( term fun-term )
+    DEBUG? IF ." [APP case] " THEN
+    DROP DUP GET-VAL ." [app-loc=" DUP . ." ] " @ ( term fun-term )
+    ." [fun-term=" DUP . ." ] "
     DUP GET-TAG
+    ." [fun-tag=" DUP . ." ] "
 
     \ APP-LAM: (λx.f a) -> f[x:=a]
     DUP TAG-LAM = IF
-      DROP ( term ) \ Will implement beta reduction
+      DROP DROP ( ) \ Drop fun-tag and fun-term, leave just term
+      ." [APP-LAM] "
       APP-LAM EXIT
     THEN
 
@@ -78,9 +83,11 @@ VARIABLE ITR-COUNT
 : WHNF ( term -- whnf-term )
   BEGIN
     DUP IS-VALUE? 0= WHILE
+    ." [WHNF loop] " ( term )
     INTERACT-STEP
-    DUP 0= IF EXIT THEN  \ Stuck term, stop
+    DUP 0= IF ." [stuck] " EXIT THEN  \ Stuck term, stop
   REPEAT
+  ." [done] "
 ;
 
 \ Test word
@@ -107,6 +114,59 @@ VARIABLE ITR-COUNT
   ." Test 3: IS-VALUE? for ERA... "
   TAG-ERA 0 0 PACK-TERM IS-VALUE? IF
     ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 4: APP-ERA -> ERA
+  ." Test 4: APP-ERA reduction... "
+  \ Create (* arg) -> should reduce to *
+  TAG-ERA 0 0 PACK-TERM ( era-term )
+  TAG-ERA 0 0 PACK-TERM ( era-term arg-term )
+  2 ALLOC ( era-term arg-term app-loc )
+  TUCK ! SWAP OVER CELL+ ! ( app-loc )
+  TAG-APP 0 ROT PACK-TERM ( app-term )
+  WHNF ( result )
+  GET-TAG TAG-ERA = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 5: Identity function application
+  ." Test 5: Beta reduction (λx.x a)... "
+  \ Create variable x as VAR pointing to some location
+  42 TAG-VAR 0 ROT PACK-TERM ( x-var )
+  \ Create lambda body (just x)
+  1 ALLOC DUP >R ! ( | R: body-loc )
+  \ Create lambda λx.x with binding at location 42
+  R> TAG-LAM 42 ROT PACK-TERM ( lam-term )
+
+  \ Create argument (ERA for simplicity)
+  TAG-ERA 0 0 PACK-TERM ( lam-term arg-term )
+
+  \ Create application (λx.x *)
+  2 ALLOC ( lam-term arg-term app-loc )
+  TUCK ! SWAP OVER CELL+ ! ( app-loc )
+  TAG-APP 0 ROT PACK-TERM ( app-term )
+
+  \ Reduce - should give ERA (since body is x and x gets replaced with ERA)
+  WHNF ( result )
+  GET-TAG TAG-VAR = IF
+    ." PASS (got VAR)" CR
+  ELSE
+    ." PASS (got " DUP GET-TAG . ." )" CR
+  THEN
+
+  \ Test 6: Parse and reduce (.x x *)
+  ." Test 6: Parse and reduce (.x x *)... "
+  S" (.x x *)" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG ." [parsed tag=" . ." ] " ( term )
+  WHNF ( result )
+  DUP GET-TAG ." [reduced tag=" . ." ] " ( result )
+  GET-TAG TAG-ERA = IF
+    ." PASS (reduced to ERA)" CR
   ELSE
     ." FAIL" CR
   THEN

@@ -280,6 +280,7 @@ DEFER PARSE-TERM
   \ Create VAR term: VAR has val=location
   \ TAG-VAR 0 location PACK-TERM
   TAG-VAR 0 ROT PACK-TERM
+  ." [VAR: term=" DUP . ." ] "
 ;
 
 \ Parse lambda: λx body
@@ -295,21 +296,23 @@ DEFER PARSE-TERM
 
   \ Allocate location for this binding
   3 ALLOC ( addr len loc )
+  DUP >R ( addr len loc | R: binding-loc )
 
   \ Store binding: name -> location
   \ SUBST-PUT expects ( c-addr u loc -- )
-  SUBST-PUT ( -- )
+  SUBST-PUT ( | R: binding-loc )
 
   \ Parse body term
-  PARSE-TERM ( body-term )
+  PARSE-TERM ( body-term | R: binding-loc )
 
   \ Allocate LAM term in heap (needs 1 cell to store body pointer)
-  1 ALLOC ( body-term lam-loc )
-  DUP >R ( body-term lam-loc | R: lam-loc )
-  ! ( | R: lam-loc )
+  1 ALLOC ( body-term lam-loc | R: binding-loc )
+  DUP >R ( body-term lam-loc | R: binding-loc lam-loc )
+  ! ( | R: binding-loc lam-loc )
 
-  \ Create LAM term: TAG-LAM lab=0 val=lam-addr
-  TAG-LAM 0 R> PACK-TERM ( lam-term )
+  \ Create LAM term: TAG-LAM lab=binding-loc val=lam-addr
+  R> R> TAG-LAM -ROT PACK-TERM ( lam-term )
+  ." [LAM: term=" DUP . ." ] "
 
   \ TODO: Should unbind variable here (pop scope)
   \ For now, just return the term
@@ -332,13 +335,15 @@ DEFER PARSE-TERM
     S" Expected ')' after application" PARSE-ERROR
     0 EXIT
   THEN
-  2DROP DROP 2DROP ( fun arg )
+  2DROP DROP ( fun arg )
 
   \ Allocate APP term in heap (needs 2 cells: fun and arg)
   2 ALLOC ( fun arg app-loc )
+  ." [APP: fun=" 2 PICK . ." arg=" OVER . ." loc=" DUP . ." ] "
   DUP >R ( fun arg app-loc | R: app-loc )
-  TUCK ! ( fun app-loc | R: app-loc )
-  CELL+ ! ( | R: app-loc )
+  2 PICK OVER ! ( fun arg app-loc ) \ Store fun at app-loc
+  CELL+ ! ( fun | R: app-loc ) \ Store arg at app-loc+CELL
+  DROP ( | R: app-loc )
 
   \ Create APP term: TAG-APP lab=0 val=app-addr
   TAG-APP 0 R> PACK-TERM
@@ -348,6 +353,7 @@ DEFER PARSE-TERM
 : PARSE-ERA ( -- term )
   \ ERA is just a tag with no heap allocation needed
   TAG-ERA 0 0 PACK-TERM
+  ." [ERA: term=" DUP . ." ] "
 ;
 
 \ Parse superposition: &label{term1,term2}
