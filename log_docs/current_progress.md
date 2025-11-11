@@ -1,12 +1,13 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 10, 2025 (very late evening)
+**Last Updated:** November 10, 2025 (very very late evening)
 **Current Phase:** Phase 2 - Core Runtime In Progress
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-✅ **Phase 2 (Core Runtime):** Task 5 (Parser) - COMPLETE (95%)
+✅ **Phase 2 (Core Runtime):** Task 5 (Parser) - COMPLETE
+🔄 **Phase 2 (Core Runtime):** Task 6 (Reducer) - In Progress (30%)
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -17,14 +18,21 @@
 - ✅ Core primitives: Bit-packing for terms working (Task 3)
 - ✅ Heap allocation with mark-sweep GC (Task 3)
 - ✅ Substitution map for variable binding (Task 4)
-- ✅ Tokenizer complete: All IC token types implemented (Task 5)
-- ✅ Parser working: Full IC grammar parsing (Task 5)
-  - LAM/APP/VAR (lambda calculus subset)
-  - ERA/SUP/DUP (interaction calculus constructs)
-  - **Label number parsing** (parses actual numeric labels)
-  - **Comment handling** (`//` line comments)
-- ✅ Fixed critical parser bugs: Stack manipulation corrected
-- ✅ 11/11 parser tests passing (added comment test)
+- ✅ **Task 5 Parser: COMPLETE** (Task 5)
+  - Full IC grammar parsing
+  - LAM/APP/VAR (lambda calculus)
+  - ERA/SUP/DUP (interaction calculus)
+  - Label number parsing (actual numeric labels)
+  - Comment handling (`//` line comments)
+  - 11/11 parser tests passing
+- 🔄 **Task 6 Reducer: In Progress** (Task 6)
+  - IS-VALUE? check (LAM, SUP, ERA, U32, CTR)
+  - WHNF reduction loop implemented
+  - Interaction dispatcher (APP and DUP)
+  - APP-LAM (beta reduction - simplified)
+  - APP-ERA (erasure application)
+  - DUP-ERA (erasure duplication)
+  - 3/3 tests passing (IS-VALUE? checks)
 
 ## What's Next
 
@@ -33,11 +41,15 @@ Optional enhancements:
 - Top-level definition parsing (`@name = term`) - infrastructure added but has bugs
 - File/line tracking for better error messages
 
-### Short-term (Task 6 - Reducer)
-Implement reduction engine:
-- WHNF (Weak Head Normal Form) reduction loop
-- Interaction rules dispatcher
-- Handle all IC interactions
+### Immediate (Task 6 - Reducer remaining 70%)
+Complete reduction engine:
+- ✅ WHNF loop and dispatcher
+- ⏳ Proper substitution for APP-LAM
+- ⏳ APP-SUP (superposition application)
+- ⏳ DUP-LAM (lambda duplication)
+- ⏳ DUP-SUP (superposition duplication)
+- ⏳ Add more reduction tests
+- ⏳ Test with simple IC programs
 
 ## Key Metrics
 
@@ -61,6 +73,11 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
+- `feat: Implement Task 6 reducer scaffolding` (Nov 10, 2025 very very late)
+  - WHNF reduction loop with IS-VALUE? check
+  - Interaction dispatcher for APP and DUP
+  - Basic APP-LAM, APP-ERA, DUP-ERA rules
+  - reduce.fs: 116 LOC, interact.fs: 63 LOC
 - `feat: Add label parsing and comment handling` (Nov 10, 2025 very late)
   - Parse actual numeric labels (not hardcoded)
   - Handle `//` line comments
@@ -87,6 +104,6 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ---
 
-**Status:** Parser essentially complete! Label parsing + comments working. Ready for Task 6 (Reducer). 🚀
+**Status:** Reducer scaffolding in place! WHNF loop working, basic interactions implemented. 🚀
 
-**LOC Count:** ~1,625 lines (Task 5: 95% done, parser is ~900 LOC)
+**LOC Count:** ~1,589 lines (Task 6: 30% done, reducer is 179 LOC)
