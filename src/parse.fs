@@ -447,8 +447,10 @@ DEFER PARSE-TERM
 
 \ Parse U32 number
 : PARSE-U32 ( c-addr u -- term )
-  \ Use Gforth's built-in S>NUMBER? for safer conversion
-  0 0 2SWAP >NUMBER ( d.low d.high c-addr' u' )
+  \ Use Gforth's >NUMBER for conversion
+  \ >NUMBER takes: ( ud1 c-addr1 u1 -- ud2 c-addr2 u2 )
+  \ Start with ud1=0, which gives us: ( 0 0 c-addr u -- ud2 c-addr2 u2 )
+  0 0 2SWAP >NUMBER ( ud.low ud.high c-addr' u' )
 
   \ Check if conversion succeeded (u' should be 0)
   IF
@@ -457,8 +459,9 @@ DEFER PARSE-TERM
     0 EXIT
   THEN
 
-  \ Drop high part of double, keep low part
-  DROP NIP ( num )
+  \ Drop address, keep double number, then drop high part
+  DROP ( ud.low ud.high )
+  DROP ( num )
 
   \ Create U32 term: tag=U32, lab=0, val=number
   TAG-U32 0 ROT PACK-TERM

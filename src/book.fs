@@ -27,16 +27,15 @@ VARIABLE NAME-LEN  \ Length of current function name
     EXIT
   THEN
 
-  \ Store directly without copying the name
-  \ For now, just use NAME-BUF directly - this is a TEMP HACK
-  \ In production, we'd need to allocate and copy, but let's get it working first
+  \ For now, store NAME-BUF pointer directly (LIMITATION: single function only)
+  \ TODO: Implement proper name copying for multi-function support
 
   \ Get book entry location
   BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr )
 
-  \ Store: [name-addr] [name-len] [arity] [term-ptr]
+  \ Store: [name-addr] [name-len] [arity] [term-value]
   >R ( name-addr name-len arity term | R: entry-addr )
-  R@ 3 CELLS + !  ( name-addr name-len arity | R: entry-addr ) \ Store term
+  R@ 3 CELLS + !  ( name-addr name-len arity | R: entry-addr ) \ Store term value directly
   R@ 2 CELLS + !  ( name-addr name-len | R: entry-addr ) \ Store arity
   R@ CELL+ !      ( name-addr | R: entry-addr ) \ Store name-len
   R> !            ( ) \ Store name-addr
@@ -73,7 +72,7 @@ VARIABLE NAME-LEN  \ Length of current function name
     STR= IF  ( name-addr name-len | R: entry-addr )
       2DROP ( | R: entry-addr )
       R@ 2 CELLS + @ ( arity | R: entry-addr )
-      R> 3 CELLS + @ ( arity term )
+      R> 3 CELLS + @ ( arity term-value )
       UNLOOP EXIT
     ELSE
       R> DROP ( name-addr name-len )
@@ -121,11 +120,6 @@ VARIABLE NAME-LEN  \ Length of current function name
 
   \ Parse the term
   PARSE-TERM ( term )
-
-  \ TEMP HACK: Replace term with a hard-coded U32 term with value 5
-  DROP  \ Drop whatever PARSE-TERM returned
-  CLEARSTACK  \ Clear all junk from stack
-  TAG-U32 0 5 PACK-TERM  ( hard-coded-term )
 
   \ Store in book dictionary (arity = 0 for now)
   \ Stack should be: ( name-addr name-len arity term )
