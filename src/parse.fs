@@ -494,10 +494,10 @@ DEFER PARSE-TERM
   TOKEN-TO-OP2 >R ( | R: opcode )
 
   \ Parse left operand
-  PARSE-TERM ( lhs-term | R: opcode )
+  PARSE-TERM >R ( | R: opcode lhs-term )
 
   \ Parse right operand
-  PARSE-TERM ( lhs-term rhs-term | R: opcode )
+  PARSE-TERM R> SWAP ( lhs-term rhs-term | R: opcode )
 
   \ Expect ')'
   NEXT-TOKEN ( lhs rhs type addr len )
@@ -1177,7 +1177,7 @@ DEFER PARSE-CTR
     NEXT-TOKEN ( type addr len )
     2 PICK DUP TOK-PLUS >= SWAP TOK-NE <= AND IF
       \ It's an operator - parse as OP2
-      2 PICK PARSE-OP2 EXIT
+      NIP NIP PARSE-OP2 EXIT
     ELSE
       \ Not an operator - it's the function in application
       \ Put token back by creating  term from it

@@ -410,8 +410,8 @@ DEFER SUBST-WALK
   \ Check if both are U32
   OVER GET-TAG TAG-U32 = OVER GET-TAG TAG-U32 = AND IF
     \ Both are U32, compute result
-    GET-VAL SWAP GET-VAL ( rhs-val lhs-val | R: opcode )
-    R> OP2-COMPUTE ( result )
+    SWAP GET-VAL SWAP GET-VAL ( lhs-val rhs-val | R: opcode )
+    R> -ROT OP2-COMPUTE ( result )
     TAG-U32 0 ROT PACK-TERM
   ELSE
     \ Not both U32 - cannot reduce yet
