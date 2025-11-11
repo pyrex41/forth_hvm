@@ -73,6 +73,11 @@ VARIABLE ITR-COUNT
     DROP 2DROP 0 EXIT  \ Stuck term
   THEN
 
+  \ Handle OP2: arithmetic operations
+  DUP TAG-OP2 = IF
+    DROP OP2-U32 EXIT
+  THEN
+
   DROP  \ No reduction possible - already a value or stuck
 ;
 

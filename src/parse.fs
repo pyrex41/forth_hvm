@@ -143,6 +143,21 @@ VARIABLE CURRENT-COL
 14 CONSTANT TOK-DOT
 15 CONSTANT TOK-COMMA
 16 CONSTANT TOK-SEMI
+17 CONSTANT TOK-PLUS
+18 CONSTANT TOK-MINUS
+19 CONSTANT TOK-DIV
+20 CONSTANT TOK-MOD
+21 CONSTANT TOK-AND
+22 CONSTANT TOK-OR
+23 CONSTANT TOK-XOR
+24 CONSTANT TOK-SHL
+25 CONSTANT TOK-SHR
+26 CONSTANT TOK-LT
+27 CONSTANT TOK-GT
+28 CONSTANT TOK-LE
+29 CONSTANT TOK-GE
+30 CONSTANT TOK-EQ
+31 CONSTANT TOK-NE
 
 \ Token buffer (stores current token text)
 CREATE TOKEN-BUF 256 ALLOT
@@ -249,6 +264,36 @@ VARIABLE TOKEN-TYPE
   DUP 59 = IF  \ ;
     DROP NEXT-CHAR DROP
     TOK-SEMI 0 0 EXIT
+  THEN
+
+  DUP 43 = IF  \ +
+    DROP NEXT-CHAR DROP
+    TOK-PLUS 0 0 EXIT
+  THEN
+
+  DUP 45 = IF  \ -
+    DROP NEXT-CHAR DROP
+    TOK-MINUS 0 0 EXIT
+  THEN
+
+  DUP 47 = IF  \ /
+    DROP NEXT-CHAR DROP
+    TOK-DIV 0 0 EXIT
+  THEN
+
+  DUP 37 = IF  \ %
+    DROP NEXT-CHAR DROP
+    TOK-MOD 0 0 EXIT
+  THEN
+
+  DUP 60 = IF  \ <
+    DROP NEXT-CHAR DROP
+    TOK-LT 0 0 EXIT
+  THEN
+
+  DUP 62 = IF  \ >
+    DROP NEXT-CHAR DROP
+    TOK-GT 0 0 EXIT
   THEN
 
   \ Check for identifier
@@ -377,6 +422,73 @@ DEFER PARSE-TERM
 : PARSE-ERA ( -- term )
   \ ERA is just a tag with no heap allocation needed
   TAG-ERA 0 0 PACK-TERM
+;
+
+\ Parse U32 number
+: PARSE-U32 ( c-addr u -- term )
+  \ Convert string to number
+  0 ( c-addr u acc )
+  ROT ROT ( acc c-addr u )
+  0 ?DO
+    OVER I + C@ 48 - ( acc c-addr digit )
+    ROT 10 * + ( c-addr acc' )
+    SWAP
+  LOOP
+  DROP ( num )
+
+  \ Create U32 term: tag=U32, lab=0, val=number
+  TAG-U32 0 ROT PACK-TERM
+;
+
+\ Get OP2 opcode from token type
+: TOKEN-TO-OP2 ( token-type -- opcode )
+  DUP TOK-PLUS = IF DROP 0 EXIT THEN   \ ADD
+  DUP TOK-MINUS = IF DROP 1 EXIT THEN  \ SUB
+  DUP TOK-STAR = IF DROP 2 EXIT THEN   \ MUL
+  DUP TOK-DIV = IF DROP 3 EXIT THEN    \ DIV
+  DUP TOK-MOD = IF DROP 4 EXIT THEN    \ MOD
+  DUP TOK-AND = IF DROP 5 EXIT THEN    \ AND
+  DUP TOK-OR = IF DROP 6 EXIT THEN     \ OR
+  DUP TOK-XOR = IF DROP 7 EXIT THEN    \ XOR
+  DUP TOK-SHL = IF DROP 8 EXIT THEN    \ SHL
+  DUP TOK-SHR = IF DROP 9 EXIT THEN    \ SHR
+  DUP TOK-LT = IF DROP 10 EXIT THEN    \ LT
+  DUP TOK-GT = IF DROP 11 EXIT THEN    \ GT
+  DUP TOK-LE = IF DROP 12 EXIT THEN    \ LE
+  DUP TOK-GE = IF DROP 13 EXIT THEN    \ GE
+  DUP TOK-EQ = IF DROP 14 EXIT THEN    \ EQ
+  DUP TOK-NE = IF DROP 15 EXIT THEN    \ NE
+  DROP 0  \ Default
+;
+
+\ Parse OP2 binary operation: (+ a b) or (- a b) etc.
+: PARSE-OP2 ( op-token -- term )
+  \ Get opcode
+  TOKEN-TO-OP2 >R ( | R: opcode )
+
+  \ Parse left operand
+  PARSE-TERM ( lhs-term | R: opcode )
+
+  \ Parse right operand
+  PARSE-TERM ( lhs-term rhs-term | R: opcode )
+
+  \ Expect ')'
+  NEXT-TOKEN ( lhs rhs type addr len )
+  2 PICK TOK-RPAREN <> IF
+    2DROP DROP 2DROP R> DROP
+    S" Expected ')' after OP2 arguments" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( lhs rhs | R: opcode )
+
+  \ Allocate OP2 term in heap (needs 2 cells: lhs, rhs)
+  2 ALLOC ( lhs rhs op2-loc | R: opcode )
+  DUP >R ( lhs rhs op2-loc | R: opcode op2-loc )
+  TUCK ! ( lhs op2-loc | R: opcode op2-loc )
+  CELL+ ! ( | R: opcode op2-loc )
+
+  \ Create OP2 term: TAG-OP2 lab=opcode val=op2-loc
+  TAG-OP2 R> R> PACK-TERM
 ;
 
 \ Parse superposition: &label{term1,term2}
@@ -575,16 +687,58 @@ DEFER PARSE-TERM
     PARSE-LAM EXIT
   THEN
 
-  \ Application: (...) ( type addr len )
+  \ Application or OP2: (...) ( type addr len )
   2 PICK TOK-LPAREN = IF
     2DROP DROP
-    PARSE-APP EXIT
+    \ Peek at next token to see if it's an operator
+    NEXT-TOKEN ( type addr len )
+    DUP TOK-PLUS >= OVER TOK-NE <= AND IF
+      \ It's an operator - parse as OP2
+      2 PICK PARSE-OP2 EXIT
+    ELSE
+      \ Not an operator - it's the function in application
+      \ Put token back by creating  term from it
+      2 PICK TOK-IDENT = IF
+        ROT DROP PARSE-VAR ( fun-term )
+      ELSE
+        2 PICK TOK-NUMBER = IF
+          ROT DROP PARSE-U32 ( fun-term )
+        ELSE
+          \ Recursively parse whatever it is
+          2DROP DROP PARSE-TERM ( fun-term )
+        THEN
+      THEN
+
+      \ Now parse argument and finish application
+      PARSE-TERM ( fun-term arg-term )
+
+      \ Expect ')'
+      NEXT-TOKEN ( fun arg type addr len )
+      2 PICK TOK-RPAREN <> IF
+        2DROP DROP 2DROP
+        S" Expected ')' after application" PARSE-ERROR
+        0 EXIT
+      THEN
+      2DROP DROP ( fun arg )
+
+      \ Allocate APP term
+      2 ALLOC DUP >R
+      TUCK ! SWAP OVER CELL+ ! DROP
+      TAG-APP 0 R> PACK-TERM
+      EXIT
+    THEN
   THEN
 
   \ Variable reference ( type addr len )
   2 PICK TOK-IDENT = IF
     ROT DROP ( addr len )
     PARSE-VAR EXIT
+  THEN
+
+  \ Number: U32 ( type addr len )
+  2 PICK TOK-NUMBER = IF
+    ROT DROP ( addr len )
+    PARSE-U32 EXIT
   THEN
 
   \ Erasure: * ( type addr len )
@@ -613,6 +767,33 @@ DEFER PARSE-TERM
 
 \ TODO: Top-level definition parsing (@name = term)
 \ Currently disabled - need to fix string handling bugs
+
+\ Test U32 and OP2
+: TEST-U32-OP2 ( -- )
+  ." Test U32/OP2 parsing... "
+
+  \ Test 1: Parse a number
+  S" 42" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-U32 = SWAP GET-VAL 42 = AND IF
+    ." U32-PASS "
+  ELSE
+    ." U32-FAIL "
+  THEN
+
+  \ Test 2: Parse addition: (+ 2 3)
+  S" (+ 2 3)" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-OP2 = IF
+    DUP GET-LAB 0 = IF  \ ADD opcode
+      ." OP2-PASS" CR
+    ELSE
+      ." OP2-FAIL" CR
+    THEN
+  ELSE
+    DROP ." OP2-FAIL" CR
+  THEN
+;
 
 \ Test tokenizer
 : TEST-TOKENIZER ( -- )

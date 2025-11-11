@@ -322,6 +322,49 @@ DEFER SUBST-WALK
   NIP NIP NIP NIP NIP NIP NIP NIP
 ;
 
+\ Perform OP2 arithmetic operation
+: OP2-COMPUTE ( opcode lhs rhs -- result )
+  \ opcode: 0=ADD, 1=SUB, 2=MUL, 3=DIV, 4=MOD, etc.
+  ROT ( lhs rhs opcode )
+  DUP 0 = IF DROP + EXIT THEN  \ ADD
+  DUP 1 = IF DROP SWAP - EXIT THEN  \ SUB
+  DUP 2 = IF DROP * EXIT THEN  \ MUL
+  DUP 3 = IF DROP SWAP / EXIT THEN  \ DIV
+  DUP 4 = IF DROP SWAP MOD EXIT THEN  \ MOD
+  DUP 5 = IF DROP AND EXIT THEN  \ AND
+  DUP 6 = IF DROP OR EXIT THEN  \ OR
+  DUP 7 = IF DROP XOR EXIT THEN  \ XOR
+  DUP 8 = IF DROP LSHIFT EXIT THEN  \ SHL
+  DUP 9 = IF DROP RSHIFT EXIT THEN  \ SHR
+  DUP 10 = IF DROP SWAP < IF -1 ELSE 0 THEN EXIT THEN  \ LT
+  DUP 11 = IF DROP SWAP > IF -1 ELSE 0 THEN EXIT THEN  \ GT
+  DUP 12 = IF DROP SWAP <= IF -1 ELSE 0 THEN EXIT THEN  \ LE
+  DUP 13 = IF DROP SWAP >= IF -1 ELSE 0 THEN EXIT THEN  \ GE
+  DUP 14 = IF DROP = IF -1 ELSE 0 THEN EXIT THEN  \ EQ
+  DUP 15 = IF DROP <> IF -1 ELSE 0 THEN EXIT THEN  \ NE
+  DROP 2DROP 0  \ Unknown opcode
+;
+
+\ OP2-U32: Reduce OP2 with two U32 operands
+: OP2-U32 ( op2-term -- reduced-term )
+  \ OP2 term structure: val points to [lhs, rhs], lab=opcode
+  DUP GET-LAB >R ( op2-term | R: opcode )
+  GET-VAL ( op2-loc | R: opcode )
+  DUP @ ( op2-loc lhs-term | R: opcode )
+  SWAP CELL+ @ ( lhs-term rhs-term | R: opcode )
+
+  \ Check if both are U32
+  OVER GET-TAG TAG-U32 = OVER GET-TAG TAG-U32 = AND IF
+    \ Both are U32, compute result
+    GET-VAL SWAP GET-VAL ( rhs-val lhs-val | R: opcode )
+    R> OP2-COMPUTE ( result )
+    TAG-U32 0 ROT PACK-TERM
+  ELSE
+    \ Not both U32 - cannot reduce yet
+    2DROP R> DROP 0
+  THEN
+;
+
 : ANNIHILATE ( term -- simplified-term )
   \ TODO: annihilation rules
 ;
