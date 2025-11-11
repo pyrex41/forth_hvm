@@ -15,7 +15,7 @@ DEFER SUBST-WALK
     DROP DUP GET-VAL ( term var-val )
     R@ = IF
       \ This VAR matches the binding - replace with arg
-      DROP R> R> DROP ( arg-term )
+      DROP R> DROP R> ( arg-term )
       EXIT
     ELSE
       \ Different VAR - keep it
@@ -65,17 +65,16 @@ DEFER SUBST-WALK
   \ APP term has: fun-ptr at val, arg-ptr at val+CELL
   DUP GET-VAL ( app-term app-loc )
   DUP @ ( app-term app-loc fun-term )
-  ." [APP-LAM fun=" DUP . ." ] "
   SWAP CELL+ @ ( app-term fun-term arg-term )
-  ." [APP-LAM arg=" DUP . ." ] "
 
-  \ fun-term is LAM, its val points to [body-term]
-  \ lab field contains the variable binding location (or 0 for unused)
-  SWAP DUP GET-LAB ." [APP-LAM var-loc=" DUP . ." ] " ( app-term arg-term fun-term var-loc )
-  SWAP GET-VAL @ ." [APP-LAM body=" DUP . ." tag=" DUP GET-TAG . ." ] " ( app-term arg-term var-loc body-term )
+  \ fun-term is LAM, extract var-loc and body
+  OVER GET-LAB ( app-term fun-term arg-term var-loc )
+  ROT GET-VAL @ ( app-term arg-term body-term var-loc )
+  SWAP ( app-term arg-term var-loc body-term )
 
   \ Now substitute: body[var-loc := arg]
-  ROT ROT ( app-term body-term var-loc arg-term )
+  ROT SWAP ( app-term body-term arg-term var-loc )
+  SWAP ( app-term body-term var-loc arg-term )
   SUBST-WALK ( app-term body-term' )
 
   NIP ( body-term' )

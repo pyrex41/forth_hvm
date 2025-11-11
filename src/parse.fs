@@ -10,6 +10,14 @@ VARIABLE INPUT-LEN
 VARIABLE INPUT-POS
 0 INPUT-POS !
 
+\ Binding ID counter (for LAM/VAR labels that fit in 18 bits)
+VARIABLE BIND-ID
+0 BIND-ID !
+
+: FRESH-BIND-ID ( -- id )
+  BIND-ID @ 1+ DUP BIND-ID !
+;
+
 \ Current line and column for error reporting
 VARIABLE CURRENT-LINE
 VARIABLE CURRENT-COL
@@ -294,24 +302,25 @@ DEFER PARSE-TERM
   THEN
   ROT DROP \ Drop type, leaves: ( addr len )
 
-  \ Allocate location for this binding
-  3 ALLOC ( addr len loc )
-  DUP >R ( addr len loc | R: binding-loc )
+  \ Get fresh binding ID (fits in 18-bit label field)
+  FRESH-BIND-ID ( addr len bind-id )
+  DUP >R ( addr len bind-id | R: bind-id )
 
-  \ Store binding: name -> location
+  \ Store binding: name -> bind-id
   \ SUBST-PUT expects ( c-addr u loc -- )
-  SUBST-PUT ( | R: binding-loc )
+  SUBST-PUT ( | R: bind-id )
 
   \ Parse body term
-  PARSE-TERM ( body-term | R: binding-loc )
+  PARSE-TERM ( body-term | R: bind-id )
 
   \ Allocate LAM term in heap (needs 1 cell to store body pointer)
-  1 ALLOC ( body-term lam-loc | R: binding-loc )
-  DUP >R ( body-term lam-loc | R: binding-loc lam-loc )
-  ! ( | R: binding-loc lam-loc )
+  1 ALLOC ( body-term lam-loc | R: bind-id )
+  ." [PARSE-LAM allocated lam-loc=" DUP . ." ] "
+  DUP >R ( body-term lam-loc | R: bind-id lam-loc )
+  ! ( | R: bind-id lam-loc )
 
-  \ Create LAM term: TAG-LAM lab=binding-loc val=lam-addr
-  R> R> TAG-LAM -ROT PACK-TERM ( lam-term )
+  \ Create LAM term: TAG-LAM lab=bind-id val=lam-loc
+  R> R> SWAP ." [PARSE-LAM packing: bind=" OVER . ." lam=" DUP . ." ] " TAG-LAM -ROT PACK-TERM ( lam-term )
   ." [LAM: term=" DUP . ." ] "
 
   \ TODO: Should unbind variable here (pop scope)
