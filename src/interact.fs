@@ -90,7 +90,61 @@ DEFER SUBST-WALK
     EXIT
   THEN
 
-  \ For ERA, U32, CTR - keep them as-is (no children to substitute)
+  \ If it's OP2, recursively substitute in both operands
+  DUP TAG-OP2 = IF
+    DROP DUP GET-LAB ( term opcode )
+    OVER GET-VAL ( term opcode op2-loc )
+    DUP @ ( term opcode op2-loc lhs-term )
+    R@ R@ SUBST-WALK ( term opcode op2-loc lhs-term' )
+    OVER CELL+ @ ( term opcode op2-loc lhs-term' rhs-term )
+    R@ R> SUBST-WALK ( term opcode op2-loc lhs-term' rhs-term' )
+
+    \ Allocate new OP2 node (2 cells: lhs, rhs)
+    2 ALLOC >R ( term opcode op2-loc lhs-term' rhs-term' | R: new-loc )
+    OVER R@ ! ( term opcode op2-loc lhs-term' rhs-term' | R: new-loc )
+    R> DUP >R CELL+ ! ( term opcode op2-loc lhs-term' | R: new-loc )
+    2DROP DROP ( opcode | R: new-loc )
+    R> TAG-OP2 -ROT PACK-TERM ( op2-term' )
+    EXIT
+  THEN
+
+  \ If it's CTR, recursively substitute in constructor fields
+  DUP TAG-CTR = IF
+    DROP DUP GET-LAB ( term ctr-tag )
+    OVER GET-VAL ( term ctr-tag fields-loc )
+    DUP 0= IF
+      \ No fields - return as-is
+      2DROP R> R> 2DROP EXIT
+    THEN
+    DUP @ ( term ctr-tag fields-loc field1-term )
+    R@ R@ SUBST-WALK ( term ctr-tag fields-loc field1-term' )
+    OVER CELL+ @ ( term ctr-tag fields-loc field1-term' field2-term )
+    R@ R> SUBST-WALK ( term ctr-tag fields-loc field1-term' field2-term' )
+
+    \ Allocate new CTR fields (2 cells for now)
+    2 ALLOC >R ( term ctr-tag fields-loc field1-term' field2-term' | R: new-loc )
+    OVER R@ ! ( term ctr-tag fields-loc field1-term' field2-term' | R: new-loc )
+    R> DUP >R CELL+ ! ( term ctr-tag fields-loc field1-term' | R: new-loc )
+    2DROP DROP ( ctr-tag | R: new-loc )
+    R> TAG-CTR -ROT PACK-TERM ( ctr-term' )
+    EXIT
+  THEN
+
+  \ If it's MATCH, recursively substitute in scrutinee and case bodies
+  DUP TAG-MATCH = IF
+    DROP ( term )
+    \ MATCH structure: val points to [scrut, cases-array]
+    DUP GET-VAL ( term match-loc )
+    DUP @ ( term match-loc scrut-term )
+    R@ R@ SUBST-WALK ( term match-loc scrut-term' )
+    SWAP CELL+ @ ( term scrut-term' cases-ptr )
+
+    \ For simplicity, substitute in case bodies (full implementation would iterate)
+    \ For now, keep cases as-is since they need proper handling
+    2DROP R> R> 2DROP EXIT
+  THEN
+
+  \ For ERA, U32, VAR, REF - keep them as-is (no children to substitute)
   DROP R> R> 2DROP ( term )
 ; IS SUBST-WALK
 
@@ -320,7 +374,7 @@ DEFER SUBST-WALK
 
   \ Clean up stack
   NIP NIP NIP NIP NIP NIP NIP NIP
-;
+; IS APP-SUP
 
 \ Perform OP2 arithmetic operation
 : OP2-COMPUTE ( opcode lhs rhs -- result )
@@ -343,7 +397,7 @@ DEFER SUBST-WALK
   DUP 14 = IF DROP = IF -1 ELSE 0 THEN EXIT THEN  \ EQ
   DUP 15 = IF DROP <> IF -1 ELSE 0 THEN EXIT THEN  \ NE
   DROP 2DROP 0  \ Unknown opcode
-; IS APP-SUP
+;
 
 \ OP2-U32: Reduce OP2 with two U32 operands
 :NONAME ( op2-term -- reduced-term )

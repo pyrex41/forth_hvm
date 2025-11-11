@@ -447,15 +447,18 @@ DEFER PARSE-TERM
 
 \ Parse U32 number
 : PARSE-U32 ( c-addr u -- term )
-  \ Convert string to number
-  0 ( c-addr u acc )
-  ROT ROT ( acc c-addr u )
-  0 ?DO
-    OVER I + C@ 48 - ( acc c-addr digit )
-    ROT 10 * + ( c-addr acc' )
-    SWAP
-  LOOP
-  DROP ( num )
+  \ Use Gforth's built-in S>NUMBER? for safer conversion
+  0 0 2SWAP >NUMBER ( d.low d.high c-addr' u' )
+
+  \ Check if conversion succeeded (u' should be 0)
+  IF
+    2DROP 2DROP
+    S" Invalid number format" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Drop high part of double, keep low part
+  DROP NIP ( num )
 
   \ Create U32 term: tag=U32, lab=0, val=number
   TAG-U32 0 ROT PACK-TERM

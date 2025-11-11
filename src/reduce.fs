@@ -99,7 +99,8 @@ VARIABLE ITR-COUNT
     DROP MATCH-REDUCE EXIT
   THEN
 
-  DROP  \ No reduction possible - already a value or stuck
+  \ No reduction possible - return term unchanged (already a value or stuck)
+  DROP  \ Remove tag, leave term
 ;
 
 \ WHNF reduction loop
@@ -234,11 +235,19 @@ DEFER NORMALIZE
   \ Create new OP2
   2 ALLOC DUP >R ( op2-term norm-lhs norm-rhs op2-addr | R: opcode op2-addr )
   TUCK ! SWAP OVER CELL+ ! ( op2-term | R: opcode op2-addr )
-  DROP TAG-OP2 R> R> PACK-TERM ( new-op2 )
 
-  \ Try to reduce it
-  OP2-U32 DUP 0<> IF EXIT THEN
-  DROP TAG-OP2 R@ R> PACK-TERM
+  \ Create OP2 term: TAG-OP2 opcode op2-addr
+  DROP TAG-OP2 R@ R> PACK-TERM ( new-op2 | R: opcode )
+
+  \ Try to reduce it with OP2-U32
+  DUP OP2-U32 ( new-op2 result )
+  DUP 0<> IF
+    \ OP2-U32 succeeded, clean up and return result
+    NIP R> DROP EXIT
+  THEN
+
+  \ OP2-U32 failed, return the normalized OP2 term
+  DROP R> DROP
 ;
 
 \ Main normalization function

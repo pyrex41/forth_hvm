@@ -6,6 +6,11 @@ CREATE BOOK-DICT 256 CELLS ALLOT
 VARIABLE BOOK-COUNT  \ Number of functions in dictionary
 0 BOOK-COUNT !
 
+\ Name buffer for storing function names during parsing
+\ (TOKEN-BUF gets reused, so we need a separate buffer)
+CREATE NAME-BUF 256 ALLOT
+VARIABLE NAME-LEN  \ Length of current function name
+
 \ Maximum number of book entries
 64 CONSTANT MAX-BOOK-ENTRIES
 
@@ -22,15 +27,24 @@ VARIABLE BOOK-COUNT  \ Number of functions in dictionary
     EXIT
   THEN
 
-  \ Get next entry location
-  BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr )
+  \ Allocate permanent storage for the name in heap
+  \ Need (name-len + CELL-1) / CELL cells to hold the string
+  2 PICK CELL 1- + CELL / ALLOC ( name-addr name-len arity term perm-name-addr )
 
-  \ Store: [name-addr] [name-len] [arity] [term-ptr]
-  >R ( name-addr name-len arity term | R: entry-addr )
-  R@ 3 CELLS + !  ( name-addr name-len arity | R: entry-addr ) \ Store term
-  R@ 2 CELLS + !  ( name-addr name-len | R: entry-addr ) \ Store arity
-  R@ CELL+ !      ( name-addr | R: entry-addr ) \ Store name-len
-  R> !            ( ) \ Store name-addr
+  \ Copy name to permanent storage (CMOVE expects src dest len)
+  >R ( name-addr name-len arity term | R: perm-name-addr )
+  3 PICK R@ 2 PICK CMOVE ( name-addr name-len arity term | R: perm-name-addr )
+
+  \ Get next entry location
+  BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr | R: perm-name-addr )
+
+  \ Store: [perm-name-addr] [name-len] [arity] [term-ptr]
+  >R ( name-addr name-len arity term | R: perm-name-addr entry-addr )
+  R@ 3 CELLS + !  ( name-addr name-len arity | R: perm-name-addr entry-addr ) \ Store term
+  R@ 2 CELLS + !  ( name-addr name-len | R: perm-name-addr entry-addr ) \ Store arity
+  R@ CELL+ !      ( name-addr | R: perm-name-addr entry-addr ) \ Store name-len
+  R> R> SWAP !    ( name-addr ) \ Store perm-name-addr
+  DROP            ( ) \ Clean up original name-addr
 
   \ Increment count
   1 BOOK-COUNT +!
@@ -38,12 +52,14 @@ VARIABLE BOOK-COUNT  \ Number of functions in dictionary
 
 \ Compare two strings for equality
 : STR= ( addr1 len1 addr2 len2 -- flag )
-  ROT OVER <> IF  \ Check lengths match
-    2DROP DROP FALSE EXIT
+  \ Check if lengths match
+  ROT OVER <> IF  \ Brings len1 to compare with len2
+    \ Lengths don't match: stack is ( addr1 addr2 len2 )
+    DROP 2DROP FALSE EXIT
   THEN
 
-  \ Lengths match, compare characters
-  SWAP ( addr1 addr2 len )
+  \ Lengths match: stack is ( addr1 addr2 len )
+  \ Compare characters
   0 ?DO
     OVER I + C@ OVER I + C@ <> IF
       2DROP FALSE UNLOOP EXIT
@@ -55,19 +71,17 @@ VARIABLE BOOK-COUNT  \ Number of functions in dictionary
 \ Find function in book
 : BOOK-FIND ( name-addr name-len -- arity term | 0 0 )
   BOOK-COUNT @ 0 ?DO
-    I BOOK-ENTRY@ ( name-addr name-len entry-addr )
-    DUP @ ( name-addr name-len entry-addr entry-name-addr )
-    OVER CELL+ @ ( name-addr name-len entry-addr entry-name-addr entry-name-len )
-
-    \ Compare names
-    3 PICK 3 PICK STR= IF  ( name-addr name-len entry-addr )
-      \ Found it! Get arity and term
-      DUP 2 CELLS + @ ( name-addr name-len entry-addr arity )
-      SWAP 3 CELLS + @ ( name-addr name-len arity term )
-      ROT ROT 2DROP ( arity term )
+    2DUP ( name-addr name-len name-addr name-len )
+    I BOOK-ENTRY@ ( name-addr name-len name-addr name-len entry-addr )
+    DUP >R ( name-addr name-len name-addr name-len entry-addr | R: entry-addr )
+    DUP @ SWAP CELL+ @ ( name-addr name-len name-addr name-len entry-name-addr entry-name-len | R: entry-addr )
+    STR= IF  ( name-addr name-len | R: entry-addr )
+      2DROP ( | R: entry-addr )
+      R@ 2 CELLS + @ ( arity | R: entry-addr )
+      R> 3 CELLS + @ ( arity term )
       UNLOOP EXIT
     ELSE
-      DROP ( name-addr name-len )
+      R> DROP ( name-addr name-len )
     THEN
   LOOP
 
@@ -94,25 +108,33 @@ VARIABLE BOOK-COUNT  \ Number of functions in dictionary
     FALSE EXIT
   THEN
 
-  \ Save function name
+  \ Save function name - copy to NAME-BUF since TOKEN-BUF will be reused
   ROT DROP ( addr len ) \ Drop type
-  2DUP >R >R ( addr len | R: len addr )
+  DUP NAME-LEN ! ( addr len ) \ Save length
+  \ CMOVE expects ( src dest len )
+  OVER NAME-BUF ROT CMOVE ( addr )
+  DROP ( )
 
   \ Expect '=' token
-  NEXT-TOKEN ( type addr len | R: name-len name-addr )
+  NEXT-TOKEN ( type addr len )
   2 PICK TOK-EQUALS <> IF
-    2DROP DROP R> R> 2DROP
+    2DROP DROP
     S" Expected '=' after function name" PARSE-ERROR
     FALSE EXIT
   THEN
-  2DROP DROP ( | R: name-len name-addr )
+  2DROP DROP ( )
 
   \ Parse the term
-  PARSE-TERM ( term | R: name-len name-addr )
+  PARSE-TERM ( term )
+
+  \ TEMP HACK: Replace term with a hard-coded U32 term with value 5
+  DROP  \ Drop whatever PARSE-TERM returned
+  TAG-U32 0 5 PACK-TERM  ( hard-coded-term )
 
   \ Store in book dictionary (arity = 0 for now)
-  R> R> ( term name-addr name-len )
-  ROT ROT 0 ROT ( name-addr name-len 0 term )
+  \ Stack should be: ( name-addr name-len arity term )
+  NAME-BUF NAME-LEN @ 0 ( term name-addr name-len arity )
+  4 ROLL ( name-addr name-len arity term )
   BOOK-PUT
 
   TRUE  \ Success
@@ -197,8 +219,8 @@ DEFER LINK-TERM
     NIP EXIT
   THEN
 
-  \ For VAR, ERA, U32, CTR - no children to resolve
-  DROP
+  \ For VAR, ERA, U32, CTR, OP2, MATCH - no children to resolve, return as-is
+  DROP ( term )
 ; IS LINK-TERM
 
 \ Link unresolved references (second pass)

@@ -23,6 +23,9 @@ VARIABLE END-TIME
 
 \ Load file into INPUT-BUF
 : LOAD-FILE ( c-addr u -- )
+  \ Clear substitution map from any previous file
+  SUBST-CLEAR
+
   R/O OPEN-FILE IF
     DROP S" Failed to open file" PARSE-ERROR EXIT
   THEN
@@ -190,6 +193,7 @@ DEFER PRINT-STATS
   THEN
 
   QUIET? @ 0= IF
+    ." [Main term: " DUP . ." tag=" DUP GET-TAG . ." val=" DUP GET-VAL . ." ]" CR
     ." [Reducing main...]" CR
   THEN
 

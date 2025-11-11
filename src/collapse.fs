@@ -1,9 +1,5 @@
-\ collapse.fs - Normalization and pretty-printing
-
-\ Deep normalization (reduce inside lambdas)
-: NORMALIZE ( term -- norm-term )
-  \ TODO: recursive normalization
-;
+\ collapse.fs - Collapse rules and pretty-printing
+\ Note: NORMALIZE is defined in reduce.fs and handles deep normalization
 
 \ Collapse rules for SUP elimination
 : SUP-LAM-COLLAPSE ( term -- term' )
@@ -12,7 +8,8 @@
 
 \ Variable renaming (α-conversion)
 : RENAME ( term -- term' )
-  \ TODO: assign fresh variable names
+  \ TODO: assign fresh variable names (for now, return as-is)
+  \ This will generate fresh names (a, b, c, ... aa, ab, ...)
 ;
 
 \ Pretty-printer
@@ -23,6 +20,7 @@
 ;
 
 \ Main collapse entry point
+\ Combines WHNF reduction, deep normalization, renaming, and printing
 : COLLAPSE ( term -- )
   WHNF
   NORMALIZE
