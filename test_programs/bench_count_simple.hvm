@@ -1,0 +1,10 @@
+// Simplified version of bench_count.hvm
+// Original uses strict evaluation (!n) and underscores in numbers
+// This version uses basic syntax compatible with current ForthVM
+
+@count = .n .k ~n { 0: k, 1+p: @count(p, (+ k 2)) }
+
+@main = @count(10, 0)
+
+// Expected result: 20
+// (counts from 10 down to 0, adding 2 each time: 10 * 2 = 20)

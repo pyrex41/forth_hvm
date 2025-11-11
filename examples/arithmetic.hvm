@@ -1,0 +1,6 @@
+// Arithmetic operations test
+add = (+ 10 20)
+mul = (* 5 6)
+cmp = (< 10 20)
+
+main = add

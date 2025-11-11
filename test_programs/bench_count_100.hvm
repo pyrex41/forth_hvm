@@ -1,0 +1,8 @@
+@count(!n k) = ~n !k {
+  0: k
+  1+p: @count(p,(+ k 2))
+}
+
+@main = @count(100 0)
+
+// Expected: 200 (100 * 2)

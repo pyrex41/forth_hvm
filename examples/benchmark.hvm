@@ -1,0 +1,17 @@
+// Simple benchmark: repeated arithmetic operations
+// Tests reducer performance with many interactions
+
+// Compute (((10 + 5) * 2) - 3)
+step1 = (+ 10 5)
+step2 = (* step1 2)
+step3 = (- step2 3)
+
+// Nested computation
+nested1 = (* (+ 5 10) (- 20 5))
+nested2 = (+ nested1 100)
+
+// Deep nesting
+deep = (* (* (* 2 2) 2) 2)
+
+// Main: combine multiple operations
+main = (+ (+ step3 nested2) deep)

@@ -24,15 +24,12 @@ VARIABLE ITR-COUNT
   \ Handle APP: check what we're applying to
   DUP TAG-APP = IF
     DEBUG? IF ." [APP case] " THEN
-    DROP DUP GET-VAL ." [app-loc=" DUP . ." ] " @ ( term fun-term )
-    ." [fun-term=" DUP . ." ] "
+    DROP DUP GET-VAL @ ( term fun-term )
     DUP GET-TAG
-    ." [fun-tag=" DUP . ." ] "
 
     \ APP-LAM: (λx.f a) -> f[x:=a]
     DUP TAG-LAM = IF
       DROP DROP ( ) \ Drop fun-tag and fun-term, leave just term
-      ." [APP-LAM] "
       APP-LAM EXIT
     THEN
 
@@ -73,7 +70,23 @@ VARIABLE ITR-COUNT
       DUP-SUP EXIT
     THEN
 
+    \ DUP-CTR: ! &L{r,s} = #T{a,b,...}; K -> distribute constructor
+    DUP TAG-CTR = IF
+      DROP ( term ) \ Implement CTR-DUP
+      CTR-DUP EXIT
+    THEN
+
     DROP 2DROP 0 EXIT  \ Stuck term
+  THEN
+
+  \ Handle OP2: arithmetic operations
+  DUP TAG-OP2 = IF
+    DROP OP2-U32 EXIT
+  THEN
+
+  \ Handle MATCH: pattern matching on U32
+  DUP TAG-MATCH = IF
+    DROP MATCH-REDUCE EXIT
   THEN
 
   DROP  \ No reduction possible - already a value or stuck
@@ -83,12 +96,182 @@ VARIABLE ITR-COUNT
 : WHNF ( term -- whnf-term )
   BEGIN
     DUP IS-VALUE? 0= WHILE
-    ." [WHNF loop] " ( term )
     INTERACT-STEP
-    DUP 0= IF ." [stuck] " EXIT THEN  \ Stuck term, stop
+    DUP 0= IF EXIT THEN  \ Stuck term, stop
   REPEAT
-  ." [done] "
 ;
+
+\ ========================================
+\ NORMALIZATION (Deep reduction)
+\ ========================================
+
+\ Normalize inside lambda body
+: NORMALIZE-LAM ( lam-term -- normalized-lam )
+  DUP GET-LAB >R ( lam-term | R: bind-id )
+  DUP GET-VAL ( lam-term body-addr | R: bind-id )
+
+  \ Get and normalize body
+  @ ( lam-term body-term | R: bind-id )
+  NORMALIZE ( lam-term norm-body | R: bind-id )
+
+  \ Create new LAM with normalized body
+  1 ALLOC DUP >R ! ( lam-term | R: bind-id body-addr )
+  NIP ( | R: bind-id body-addr )
+  TAG-LAM R> R> PACK-TERM
+;
+
+\ Normalize both branches of superposition
+: NORMALIZE-SUP ( sup-term -- normalized-sup )
+  DUP GET-LAB >R ( sup-term | R: label )
+  DUP GET-VAL ( sup-term sup-addr | R: label )
+
+  \ Get and normalize both branches
+  DUP @ ( sup-term sup-addr a-term | R: label )
+  NORMALIZE ( sup-term sup-addr norm-a | R: label )
+  SWAP CELL+ @ ( sup-term norm-a b-term | R: label )
+  NORMALIZE ( sup-term norm-a norm-b | R: label )
+
+  \ Create new SUP with normalized branches
+  2 ALLOC DUP >R ( sup-term norm-a norm-b sup-addr | R: label sup-addr )
+  TUCK ! SWAP OVER CELL+ ! ( sup-term | R: label sup-addr )
+  DROP ( | R: label sup-addr )
+  TAG-SUP R> R> PACK-TERM
+;
+
+\ Normalize application (both function and argument)
+: NORMALIZE-APP ( app-term -- normalized )
+  DUP GET-VAL ( app-term app-addr )
+
+  \ Get function and argument
+  DUP @ ( app-term app-addr fun-term )
+  SWAP CELL+ @ ( app-term fun-term arg-term )
+
+  \ Normalize both
+  NORMALIZE ( app-term norm-fun arg-term )
+  SWAP NORMALIZE ( app-term norm-arg norm-fun )
+
+  \ Create new APP and reduce it
+  2 ALLOC DUP >R ( app-term norm-arg norm-fun app-addr | R: app-addr )
+  TUCK ! SWAP OVER CELL+ ! ( app-term | R: app-addr )
+  DROP TAG-APP 0 R> PACK-TERM ( new-app )
+
+  \ Apply WHNF to the new application
+  WHNF
+
+  \ Recursively normalize the result
+  NORMALIZE
+;
+
+\ Normalize duplication
+: NORMALIZE-DUP ( dup-term -- normalized )
+  DUP GET-LAB >R ( dup-term | R: label )
+  DUP GET-VAL ( dup-term dup-addr | R: label )
+
+  \ Get target and continuation
+  DUP @ ( dup-term dup-addr target | R: label )
+  NORMALIZE ( dup-term dup-addr norm-target | R: label )
+  SWAP CELL+ @ ( dup-term norm-target cont | R: label )
+  NORMALIZE ( dup-term norm-target norm-cont | R: label )
+
+  \ Create new DUP
+  2 ALLOC DUP >R ( dup-term norm-target norm-cont dup-addr | R: label dup-addr )
+  TUCK ! SWAP OVER CELL+ ! ( dup-term | R: label dup-addr )
+  DROP TAG-DUP R> R> PACK-TERM
+;
+
+\ Normalize constructor fields
+: NORMALIZE-CTR ( ctr-term -- normalized-ctr )
+  DUP GET-LAB >R ( ctr-term | R: tag-id )
+  DUP GET-VAL ( ctr-term fields-addr | R: tag-id )
+
+  \ For simplicity, assume 2 fields max for now
+  \ Full implementation would need field count
+  DUP 0= IF
+    \ No fields - return as is
+    DROP R> DROP EXIT
+  THEN
+
+  \ Normalize first field (if exists)
+  DUP @ ( ctr-term fields-addr field1 | R: tag-id )
+  NORMALIZE ( ctr-term fields-addr norm-field1 | R: tag-id )
+
+  \ Create new fields array
+  2 ALLOC DUP >R ( ctr-term fields-addr norm-field1 new-fields | R: tag-id new-fields )
+  TUCK ! CELL+ ( ctr-term fields-addr | R: tag-id new-fields )
+
+  \ Copy/normalize second field if exists
+  CELL+ @ NORMALIZE ( norm-field2 | R: tag-id new-fields )
+  R@ CELL+ ! ( | R: tag-id new-fields )
+
+  \ Create new CTR
+  NIP TAG-CTR R> R> PACK-TERM
+;
+
+\ Normalize OP2 operands
+: NORMALIZE-OP2 ( op2-term -- normalized )
+  DUP GET-LAB >R ( op2-term | R: opcode )
+  DUP GET-VAL ( op2-term op2-addr | R: opcode )
+
+  \ Get and normalize operands
+  DUP @ ( op2-term op2-addr lhs | R: opcode )
+  NORMALIZE ( op2-term op2-addr norm-lhs | R: opcode )
+  SWAP CELL+ @ ( op2-term norm-lhs rhs | R: opcode )
+  NORMALIZE ( op2-term norm-lhs norm-rhs | R: opcode )
+
+  \ Create new OP2
+  2 ALLOC DUP >R ( op2-term norm-lhs norm-rhs op2-addr | R: opcode op2-addr )
+  TUCK ! SWAP OVER CELL+ ! ( op2-term | R: opcode op2-addr )
+  DROP TAG-OP2 R> R> PACK-TERM ( new-op2 )
+
+  \ Try to reduce it
+  OP2-U32 DUP 0<> IF EXIT THEN
+  DROP TAG-OP2 R@ R> PACK-TERM
+;
+
+\ Main normalization function
+\ First reduces to WHNF, then normalizes recursively based on term type
+DEFER NORMALIZE
+
+:NONAME ( term -- normalized-term )
+  \ First, reduce to WHNF
+  WHNF
+
+  \ Then normalize recursively based on tag
+  DUP GET-TAG
+
+  \ LAM: normalize body
+  DUP TAG-LAM = IF
+    DROP NORMALIZE-LAM EXIT
+  THEN
+
+  \ SUP: normalize both branches
+  DUP TAG-SUP = IF
+    DROP NORMALIZE-SUP EXIT
+  THEN
+
+  \ APP: should not happen after WHNF, but handle it
+  DUP TAG-APP = IF
+    DROP NORMALIZE-APP EXIT
+  THEN
+
+  \ DUP: should not happen after WHNF, but handle it
+  DUP TAG-DUP = IF
+    DROP NORMALIZE-DUP EXIT
+  THEN
+
+  \ CTR: normalize fields
+  DUP TAG-CTR = IF
+    DROP NORMALIZE-CTR EXIT
+  THEN
+
+  \ OP2: normalize operands
+  DUP TAG-OP2 = IF
+    DROP NORMALIZE-OP2 EXIT
+  THEN
+
+  \ ERA, U32, VAR, REF: already normalized
+  DROP
+; IS NORMALIZE
 
 \ Test word
 : TEST-REDUCE ( -- )

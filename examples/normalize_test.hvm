@@ -1,0 +1,6 @@
+// Test normalization vs WHNF
+// WHNF: stops at outer lambda
+// Normalization: reduces inside lambda body
+
+// λx.(+ 2 3) - with normalization becomes λx.5
+main = .x (+ 2 3)

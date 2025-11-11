@@ -1,5 +1,80 @@
 #!/bin/bash
 # ForthVM launcher script
 
-cd "$(dirname "$0")/src"
-gforth fvm.fs -e "MAIN bye" "$@"
+set -e
+
+SCRIPT_DIR="$(dirname "$0")"
+STATS=""
+QUIET=""
+NORMALIZE=""
+FILE=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -s)
+      STATS="-s"
+      shift
+      ;;
+    -Q)
+      QUIET="-Q"
+      shift
+      ;;
+    -N)
+      NORMALIZE="-N"
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: fvm [options] run <file.hvm>"
+      echo ""
+      echo "Options:"
+      echo "  -s         Show statistics (MIPS)"
+      echo "  -Q         Quiet mode"
+      echo "  -N         Full normalization (reduce inside lambdas)"
+      echo "  -h, --help Show this help"
+      echo ""
+      echo "Example:"
+      echo "  fvm run examples/test_add.hvm"
+      echo "  fvm -s run examples/test_add.hvm"
+      echo "  fvm -N -s run examples/identity.hvm"
+      exit 0
+      ;;
+    run)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Error: 'run' requires a filename"
+        exit 1
+      fi
+      FILE="$1"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Use 'fvm --help' for usage information"
+      exit 1
+      ;;
+  esac
+done
+
+# Check if file was specified
+if [[ -z "$FILE" ]]; then
+  echo "Error: No file specified"
+  echo "Use 'fvm --help' for usage information"
+  exit 1
+fi
+
+# Check if file exists
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE"
+  exit 1
+fi
+
+# Convert to absolute path
+FILE_ABS="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
+
+# Build Forth command
+FORTH_CMD="$STATS $QUIET $NORMALIZE S\\\" $FILE_ABS\\\" RUN-FILE bye"
+
+# Run
+cd "$SCRIPT_DIR/src"
+exec gforth fvm.fs -e "$FORTH_CMD"

@@ -1,0 +1,20 @@
+// Church numerals and arithmetic
+// Test lambda calculus encodings
+
+// Church zero: λf.λx.x
+zero = .f .x x
+
+// Church successor: λn.λf.λx.(f (n f x))
+succ = .n .f .x (f ((n f) x))
+
+// Church addition: λm.λn.λf.λx.((m f) ((n f) x))
+add = .m .n .f .x ((m f) ((n f) x))
+
+// Church one: succ(zero)
+one = (succ zero)
+
+// Church two: succ(one)
+two = (succ one)
+
+// Test: add(one, two) = three
+main = ((add one) two)

@@ -1,0 +1,3 @@
+// Identity function test
+id = (.x x)
+main = (id *)

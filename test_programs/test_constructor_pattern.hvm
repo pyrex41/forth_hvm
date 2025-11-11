@@ -1,0 +1,10 @@
+// Simple test of constructor pattern matching
+
+@length = .xs ~xs {
+  #Nil: 0
+  #Cons{head tail}: (+ 1 @length(tail))
+}
+
+@main = @length(#Cons{1 #Cons{2 #Cons{3 #Nil}}})
+
+// Expected: 3

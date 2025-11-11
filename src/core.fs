@@ -11,6 +11,7 @@
 7 CONSTANT TAG-U32
 8 CONSTANT TAG-OP2
 9 CONSTANT TAG-REF
+10 CONSTANT TAG-MATCH
 
 \ Term packing/unpacking (adapt to CELL size)
 \ Layout for 64-bit: tag:5b lab:18b val:41b (5+18+41=64)

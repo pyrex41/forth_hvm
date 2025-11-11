@@ -1,0 +1,15 @@
+// SKI Combinator Calculus
+// Test basic combinators
+
+// I combinator: λx.x (identity)
+I = .x x
+
+// K combinator: λx.λy.x (constant)
+K = .x .y x
+
+// S combinator: λx.λy.λz.((x z) (y z))
+S = .x .y .z ((x z) (y z))
+
+// Test: S K K = I
+// (S K K) x = (K x (K x)) = x
+main = (((S K) K) *)
