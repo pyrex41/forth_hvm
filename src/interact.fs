@@ -427,10 +427,134 @@ DEFER SUBST-WALK
   R> DROP R> DROP
 ;
 
-\ MATCH-REDUCE: Pattern matching on U32
-\ ~n { 0: zero_case, 1+p: succ_case }
-\ Heap layout: [scrut-loc, zero-body, succ-bind-id, succ-body]
+\ MATCH-REDUCE-CONSTRUCTOR: Pattern matching on constructors
+\ ~xs { #Nil: e1, #Cons{h t}: e2 }
+\ Heap layout: [scrut-loc, num-cases, case-array-ptr]
+\ Case array: [tag1, num-fields1, bind-id1, ..., body1, tag2, ...]
+: MATCH-REDUCE-CONSTRUCTOR ( match-term -- reduced-term )
+  DUP GET-VAL ( match-term match-loc )
+
+  \ Load match data
+  DUP @ ( match-term match-loc scrut-loc )
+  OVER CELL+ @ ( match-term match-loc scrut-loc num-cases )
+  2 PICK 2 CELLS + @ ( match-term match-loc scrut-loc num-cases case-array-ptr )
+
+  \ Clean up and prepare
+  >R >R ( match-term match-loc scrut-loc | R: case-array-ptr num-cases )
+  NIP ( scrut-loc | R: case-array-ptr num-cases )
+
+  \ Evaluate scrutinee to WHNF
+  TAG-VAR 0 ROT PACK-TERM ( scrut-var | R: case-array-ptr num-cases )
+  WHNF ( scrut-whnf | R: case-array-ptr num-cases )
+
+  \ Check if it's a CTR
+  DUP GET-TAG TAG-CTR <> IF
+    \ Not a constructor - return ERA
+    DROP R> R> 2DROP
+    TAG-ERA 0 0 PACK-TERM EXIT
+  THEN
+
+  \ Get constructor tag and fields
+  DUP GET-LAB ( scrut-whnf scrut-tag | R: case-array-ptr num-cases )
+  SWAP GET-VAL ( scrut-tag scrut-fields-ptr | R: case-array-ptr num-cases )
+
+  \ Iterate through cases to find matching tag
+  R> R> ( scrut-tag scrut-fields-ptr num-cases case-array-ptr )
+  SWAP 0 ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx )
+
+  BEGIN
+    \ Check if we've exhausted all cases
+    DUP 3 PICK >= IF
+      \ No match found - return ERA
+      2DROP 2DROP DROP
+      TAG-ERA 0 0 PACK-TERM EXIT
+    THEN
+
+    \ Get current case pointer
+    3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr )
+
+    \ Read case tag
+    DUP @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr case-tag )
+
+    \ Check if tags match
+    5 PICK = IF
+      \ Match found!
+      \ Read num-fields and body
+      DUP CELL+ @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields )
+
+      \ Body is at: curr-case-ptr + (2 + num-fields) * CELL
+      OVER OVER 2 + CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields body )
+
+      \ Now bind fields to variables
+      \ Bind-ids are at: curr-case-ptr + 2*CELL, 3*CELL, ...
+      \ Field values are at: scrut-fields-ptr[0], [1], ...
+
+      \ For each field, substitute in body
+      SWAP ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields )
+
+      \ Iterate through fields
+      0 ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx )
+      BEGIN
+        DUP 2 PICK < WHILE ( ... body num-fields field-idx )
+
+        \ Get bind-id for this field
+        3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx curr-case-ptr )
+        OVER 2 + CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id )
+
+        \ Get field value
+        8 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id scrut-fields-ptr )
+        5 PICK CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value )
+
+        \ Substitute in body
+        3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value body )
+        -ROT ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body bind-id field-value )
+        SUBST-WALK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' )
+
+        \ Update body
+        2 PICK >R ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' | R: field-idx )
+        2 PICK DROP ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields field-idx body' | R: field-idx )
+        R> ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields field-idx body' field-idx )
+        ROT ROT ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields body' field-idx )
+
+        \ Increment field-idx
+        1+ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields body' field-idx' )
+      REPEAT
+
+      \ Clean up and return body
+      DROP NIP NIP ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx body' )
+      NIP NIP NIP NIP NIP ( body' )
+      EXIT
+    THEN
+
+    \ Tags don't match - advance to next case
+    \ Calculate case size: 2 + num-fields + 1 = 3 + num-fields
+    DUP CELL+ @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields )
+    3 + CELLS ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr case-size )
+    + ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx next-case-ptr )
+
+    \ Update case array pointer and index
+    2 PICK DROP SWAP ( scrut-tag scrut-fields-ptr next-case-ptr num-cases case-idx )
+    1+ ( scrut-tag scrut-fields-ptr next-case-ptr num-cases case-idx' )
+    0 \ Continue loop
+  0= UNTIL
+
+  \ Should not reach here
+  2DROP 2DROP DROP
+  TAG-ERA 0 0 PACK-TERM
+;
+
+\ MATCH-REDUCE: Pattern matching dispatcher
+\ Checks label to determine numeric (0) or constructor (1) pattern
 : MATCH-REDUCE ( match-term -- reduced-term )
+  \ Check pattern type from label
+  DUP GET-LAB ( match-term pattern-type )
+  1 = IF
+    \ Constructor pattern
+    DROP MATCH-REDUCE-CONSTRUCTOR EXIT
+  THEN
+  DROP ( match-term )
+
+  \ Numeric pattern (original code)
   \ Get match data from heap
   DUP GET-VAL ( match-term match-loc )
 

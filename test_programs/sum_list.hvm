@@ -1,0 +1,11 @@
+// Sum a list using constructor pattern matching
+// Similar to HVM3's bench_sum_range.hvm but without data declarations
+
+@sum = .xs .r ~xs {
+  #Nil: r
+  #Cons{head tail}: @sum(tail (+ head r))
+}
+
+@main = @sum(#Cons{1 #Cons{2 #Cons{3 #Nil}}} 0)
+
+// Expected: 6 (1 + 2 + 3)

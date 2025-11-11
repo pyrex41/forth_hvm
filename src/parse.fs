@@ -688,6 +688,162 @@ DEFER PARSE-TERM
   \ TODO: Should unbind variables here (pop scope)
 ;
 
+\ Parse constructor pattern cases: #Nil: e1, #Cons{h t}: e2, ...
+\ Input: scrut-loc on stack, TOK-HASH already consumed
+\ Returns MATCH term with type=1 (constructor pattern)
+: PARSE-CONSTRUCTOR-PATTERN ( scrut-loc -- term )
+  \ We'll collect cases in a dynamically-built array
+  \ For simplicity, support up to 8 cases max
+  \ Each case: [tag, num-fields, bind-id1, bind-id2, ..., body]
+
+  \ Allocate space for case array (estimate: 32 cells for all cases)
+  32 ALLOC >R ( scrut-loc | R: case-array-start )
+
+  \ Case counter
+  0 ( scrut-loc case-count | R: case-array-start )
+
+  \ Current write position in case array
+  R@ ( scrut-loc case-count write-ptr | R: case-array-start )
+
+  BEGIN
+    \ Parse constructor tag (#Tag)
+    NEXT-TOKEN ( scrut-loc case-count write-ptr type addr len | R: case-array-start )
+    2 PICK TOK-IDENT <> IF
+      2DROP DROP 2DROP DROP R> DROP
+      S" Expected constructor tag after #" PARSE-ERROR
+      0 EXIT
+    THEN
+    ROT DROP ( scrut-loc case-count write-ptr addr len | R: case-array-start )
+
+    \ Convert tag name to numeric ID (use first char for now)
+    OVER C@ ( scrut-loc case-count write-ptr addr len tag-id | R: case-array-start )
+    >R 2DROP ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
+
+    \ Store tag in case array
+    DUP R@ SWAP ! ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
+    CELL+ ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+
+    \ Check for field bindings: '{' or ':'
+    NEXT-TOKEN ( scrut-loc case-count write-ptr' type addr len | R: case-array-start tag-id )
+    2 PICK TOK-LBRACE = IF
+      \ Has fields: #Tag{field1 field2 ...}
+      2DROP DROP ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+
+      \ Parse field names and store bind-ids
+      0 ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+      BEGIN
+        NEXT-TOKEN ( scrut-loc case-count write-ptr' num-fields type addr len | R: case-array-start tag-id )
+        2 PICK TOK-RBRACE = IF
+          \ End of fields
+          2DROP DROP ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+          -1 \ Exit loop
+        ELSE
+          2 PICK TOK-IDENT <> IF
+            2DROP DROP 2DROP 2DROP R> R> 2DROP
+            S" Expected field name in constructor pattern" PARSE-ERROR
+            0 EXIT
+          THEN
+          ROT DROP ( scrut-loc case-count write-ptr' num-fields addr len | R: case-array-start tag-id )
+
+          \ Get fresh bind-id for this field
+          FRESH-BIND-ID ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id )
+          DUP >R ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id bind-id )
+
+          \ Store in SUBST map
+          SUBST-PUT ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id bind-id )
+
+          \ Store bind-id in case array (after tag and num-fields)
+          \ We'll write num-fields later, for now skip one cell
+          OVER R@ SWAP CELL+ CELL+ ( scrut-loc case-count write-ptr' num-fields bind-id-addr | R: case-array-start tag-id bind-id )
+          2 PICK CELLS + ( scrut-loc case-count write-ptr' num-fields storage-addr | R: case-array-start tag-id bind-id )
+          R> SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+
+          \ Increment field count
+          1+ ( scrut-loc case-count write-ptr' num-fields' | R: case-array-start tag-id )
+          0 \ Continue loop
+        THEN
+      0= UNTIL
+
+      \ Store num-fields in case array at write-ptr[1]
+      OVER CELL+ OVER SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+
+      \ Advance write-ptr past tag, num-fields, and all bind-ids
+      SWAP OVER ( scrut-loc case-count num-fields write-ptr' num-fields | R: case-array-start tag-id )
+      2 + CELLS + ( scrut-loc case-count num-fields write-ptr'' | R: case-array-start tag-id )
+      SWAP ( scrut-loc case-count write-ptr'' num-fields | R: case-array-start tag-id )
+      DROP ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
+    ELSE
+      \ No fields: #Tag:
+      2 PICK TOK-COLON <> IF
+        2DROP DROP 2DROP DROP R> R> 2DROP
+        S" Expected ':' or '{' after constructor tag" PARSE-ERROR
+        0 EXIT
+      THEN
+      2DROP DROP ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+
+      \ Store num-fields = 0
+      DUP CELL+ 0 SWAP ! ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+      2 CELLS + ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
+      NEXT-TOKEN DROP 2DROP \ Consume ':'
+    THEN
+
+    R> DROP ( scrut-loc case-count write-ptr'' | R: case-array-start )
+
+    \ Parse case body
+    PARSE-TERM ( scrut-loc case-count write-ptr'' body | R: case-array-start )
+
+    \ Store body in case array
+    OVER TUCK ! ( scrut-loc case-count body write-ptr'' | R: case-array-start )
+    CELL+ ( scrut-loc case-count body write-ptr''' | R: case-array-start )
+    NIP ( scrut-loc case-count write-ptr''' | R: case-array-start )
+
+    \ Increment case counter
+    SWAP 1+ SWAP ( scrut-loc case-count' write-ptr''' | R: case-array-start )
+
+    \ Check for more cases (comma or closing brace)
+    NEXT-TOKEN ( scrut-loc case-count' write-ptr''' type addr len | R: case-array-start )
+    2 PICK TOK-COMMA = IF
+      \ More cases
+      2DROP DROP ( scrut-loc case-count' write-ptr''' | R: case-array-start )
+      NEXT-TOKEN ( scrut-loc case-count' write-ptr''' type addr len | R: case-array-start )
+      2 PICK TOK-HASH <> IF
+        2DROP DROP 2DROP DROP R> DROP
+        S" Expected #Tag after comma" PARSE-ERROR
+        0 EXIT
+      THEN
+      2DROP DROP ( scrut-loc case-count' write-ptr''' | R: case-array-start )
+      0 \ Continue loop
+    ELSE
+      2 PICK TOK-RBRACE = IF
+        \ End of cases
+        2DROP DROP ( scrut-loc case-count' write-ptr''' | R: case-array-start )
+        -1 \ Exit loop
+      ELSE
+        2DROP DROP 2DROP DROP R> DROP
+        S" Expected '}' or ',' after case body" PARSE-ERROR
+        0 EXIT
+      THEN
+    THEN
+  0= UNTIL
+
+  \ Now we have: scrut-loc case-count write-ptr
+  \ Create MATCH term with constructor pattern type (label=1)
+  DROP ( scrut-loc case-count | R: case-array-start )
+
+  \ Allocate MATCH term storage: [scrut-loc, num-cases, case-array-ptr]
+  3 ALLOC DUP >R ( scrut-loc case-count match-loc | R: case-array-start match-loc )
+
+  \ Store values
+  2 PICK OVER ! ( scrut-loc case-count match-loc | R: case-array-start match-loc )
+  OVER OVER CELL+ ! ( scrut-loc case-count match-loc | R: case-array-start match-loc )
+  R@ SWAP 2 CELLS + ! ( scrut-loc case-count | R: case-array-start match-loc )
+  2DROP ( | R: case-array-start match-loc )
+
+  \ Create MATCH term: TAG-MATCH lab=1 (constructor type) val=match-loc
+  R> R> DROP ( match-loc )
+  TAG-MATCH 1 ROT PACK-TERM
+;
+
 \ Parse pattern matching: ~n { 0: a, 1+p: b }
 \ Returns a desugared term using core IC primitives
 : PARSE-PATTERN-MATCH ( -- term )
@@ -727,13 +883,20 @@ DEFER PARSE-TERM
   THEN
   2DROP DROP ( | R: scrut-loc )
 
-  \ Parse case branches
-  \ For now, we expect exactly two cases: 0: and 1+:
-  \ First case should be 0:
+  \ Parse case branches - detect pattern type by first token
   NEXT-TOKEN ( type addr len | R: scrut-loc )
+
+  \ Check if it's numeric pattern (0:, 1+p:) or constructor pattern (#Tag:)
+  2 PICK TOK-HASH = IF
+    \ Constructor pattern
+    2DROP DROP R> ( scrut-loc )
+    PARSE-CONSTRUCTOR-PATTERN EXIT
+  THEN
+
+  \ Numeric pattern - first case should be 0:
   2 PICK TOK-NUMBER <> IF
     2DROP DROP R> DROP
-    S" Expected '0' for zero case" PARSE-ERROR
+    S" Expected '0' or #Tag for pattern case" PARSE-ERROR
     0 EXIT
   THEN
 
