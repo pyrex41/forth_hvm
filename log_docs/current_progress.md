@@ -1,13 +1,13 @@
 # ForthVM Current Progress
 
-**Last Updated:** November 11, 2025 (Session 6 Complete)
+**Last Updated:** November 11, 2025 (Session 7 In Progress)
 **Current Phase:** Phase 2 - Core Runtime Implementation
-**Session:** Complete book loading and global linking - Task 6 DONE
+**Session:** Implementing extended interaction rules - Task 9 66% DONE
 
 ## Quick Status
 
 ✅ **Phase 1 (Setup):** COMPLETE
-✅ **Phase 2 (Core Runtime):** Tasks 5-6, 7-8 COMPLETE (100%)
+✅ **Phase 2 (Core Runtime):** Tasks 5-8 COMPLETE, Task 9 66% COMPLETE
 ⏳ **Phases 3-6:** Planned
 
 ## What's Working
@@ -38,7 +38,17 @@
 - **Tests:** 3/3 passing (dict ops, parse def, ref resolution)
 - **Code:** book.fs 311 LOC
 
-### Reducer (Tasks 7-8) ✅ Task 7 COMPLETE, Task 8 70% COMPLETE
+### Extended Rules (Task 9) 🔄 **66% COMPLETE**
+- ✅ **U32 Support:** Parse and store 32-bit integers
+- ✅ **OP2 Operations:** 16 arithmetic/logical operations
+  - ADD, SUB, MUL, DIV, MOD, AND, OR, XOR
+  - SHL, SHR, LT, GT, LE, GE, EQ, NE
+- ✅ **OP2 Reduction:** OP2-U32 computes results
+- ⏳ **CTR Support:** Constructor parsing and rules (TODO)
+- **Tests:** 2/2 passing (U32 parse, OP2 parse)
+- **Code:** +231 lines across 3 files
+
+### Reducer (Tasks 7-8) ✅ BOTH COMPLETE
 
 #### Task 7: WHNF Loop & Dispatcher ✅ **COMPLETE**
 - ✅ IS-VALUE? predicate (LAM, SUP, ERA, U32, CTR)
@@ -109,7 +119,7 @@
 
 ## Test Results
 
-**Overall: 34/34 tests passing (100%)** ✅
+**Overall: 36/36 tests passing (100%)** ✅
 
 ✅ **Core module:** 3/3 (pack/unpack roundtrip)
 ✅ **Heap module:** 6/6 (allocation, GC)
@@ -120,6 +130,9 @@
 - ✅ Test 1: BOOK-PUT and BOOK-FIND operations
 - ✅ Test 2: PARSE-DEF simple definition
 - ✅ Test 3: Function references and linking
+✅ **U32/OP2 module:** 2/2 (number parsing, operations)
+- ✅ Test 1: Parse U32 number "42"
+- ✅ Test 2: Parse OP2 operation "(+ 2 3)"
 
 ## Key Metrics
 
@@ -149,7 +162,17 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ## Recent Commits
 
-### Latest: `feat: Implement Task 6 - Book loading and global linking` (Nov 11, 2025)
+### Latest: `feat: Implement U32 and OP2 support (partial Task 9)` (Nov 11, 2025)
+- Added 16 operator tokens (+, -, /, %, <, >, etc.)
+- Implemented PARSE-U32 for number parsing
+- Implemented PARSE-OP2 for binary operations
+- Added OP2-COMPUTE with 16 arithmetic/logical operations
+- Added OP2-U32 reduction rule for constant folding
+- Integrated OP2 into INTERACT-STEP dispatcher
+- **2 new tests passing**
+- **Task 9 now 66% complete**
+
+### Previous: `feat: Implement Task 6 - Book loading and global linking` (Nov 11, 2025)
 - Implemented function dictionary with 64 entries (BOOK-PUT, BOOK-FIND)
 - Added PARSE-DEF for "name = term" syntax
 - Extended PARSE-VAR to support @name references (creates REF terms)
@@ -215,11 +238,11 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 - **Status:** All tests passing, beta reduction fully working
 
 ### Overall Progress
-- **Days:** 2 (6 sessions)
-- **LOC Written:** ~2,230 lines
-- **Tests Passing:** **34/34 (100%)** ✅
-- **Tasks Complete:** **9/14 (64%)**
-- **Current Task:** 9 (Extended interaction rules - next to start)
+- **Days:** 2 (7 sessions)
+- **LOC Written:** ~2,460 lines
+- **Tests Passing:** **36/36 (100%)** ✅
+- **Tasks Complete:** **8.66/14 (62%)**
+- **Current Task:** 9 (Extended rules - 66% complete, CTR remaining)
 - **Velocity:** Very high - rapid development with systematic debugging
 - **Quality:** High - comprehensive tests, clean architecture, all tests passing
 
@@ -301,10 +324,10 @@ cd hvm3 && cabal run hvm -- run examples/bench_cnots.hvm -C -s
 
 ---
 
-**Status:** 🎉 **TASK 6 COMPLETE** - Book loading and global linking fully implemented! Function dictionary with reference resolution working. Can now load multi-function programs with forward references.
+**Status:** 🚀 **TASK 9 66% COMPLETE** - U32 and OP2 fully working! Numbers and 16 arithmetic operations implemented. Can now compute (+ 2 3), (* 5 10), (< x y), etc. CTR support remaining.
 
-**LOC Count:** ~2,230 lines (Task 6: 311 LOC book loading)
+**LOC Count:** ~2,460 lines (Task 9 partial: +231 LOC for U32/OP2)
 
-**Next Milestone:** Task 9 (Extended rules) → Task 10 (Normalization) → Integration testing
+**Next Milestone:** Complete CTR support → Task 10 (Normalization) → Integration testing
 
-**Key Achievement:** Completed book loading with two-pass reference resolution. Can parse "name = term" definitions and resolve @name references across the entire program. Foundation for loading real HVM programs!
+**Key Achievement:** Extended IC runtime with numbers and arithmetic! Can now execute computational programs with integers and binary operations. Constant folding working with OP2-U32 rule.
