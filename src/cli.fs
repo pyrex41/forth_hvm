@@ -193,7 +193,6 @@ DEFER PRINT-STATS
   THEN
 
   QUIET? @ 0= IF
-    ." [Main term: " DUP . ." tag=" DUP GET-TAG . ." val=" DUP GET-VAL . ." ]" CR
     ." [Reducing main...]" CR
   THEN
 

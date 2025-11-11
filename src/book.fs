@@ -27,24 +27,19 @@ VARIABLE NAME-LEN  \ Length of current function name
     EXIT
   THEN
 
-  \ Allocate permanent storage for the name in heap
-  \ Need (name-len + CELL-1) / CELL cells to hold the string
-  2 PICK CELL 1- + CELL / ALLOC ( name-addr name-len arity term perm-name-addr )
+  \ Store directly without copying the name
+  \ For now, just use NAME-BUF directly - this is a TEMP HACK
+  \ In production, we'd need to allocate and copy, but let's get it working first
 
-  \ Copy name to permanent storage (CMOVE expects src dest len)
-  >R ( name-addr name-len arity term | R: perm-name-addr )
-  3 PICK R@ 2 PICK CMOVE ( name-addr name-len arity term | R: perm-name-addr )
+  \ Get book entry location
+  BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr )
 
-  \ Get next entry location
-  BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr | R: perm-name-addr )
-
-  \ Store: [perm-name-addr] [name-len] [arity] [term-ptr]
-  >R ( name-addr name-len arity term | R: perm-name-addr entry-addr )
-  R@ 3 CELLS + !  ( name-addr name-len arity | R: perm-name-addr entry-addr ) \ Store term
-  R@ 2 CELLS + !  ( name-addr name-len | R: perm-name-addr entry-addr ) \ Store arity
-  R@ CELL+ !      ( name-addr | R: perm-name-addr entry-addr ) \ Store name-len
-  R> R> SWAP !    ( name-addr ) \ Store perm-name-addr
-  DROP            ( ) \ Clean up original name-addr
+  \ Store: [name-addr] [name-len] [arity] [term-ptr]
+  >R ( name-addr name-len arity term | R: entry-addr )
+  R@ 3 CELLS + !  ( name-addr name-len arity | R: entry-addr ) \ Store term
+  R@ 2 CELLS + !  ( name-addr name-len | R: entry-addr ) \ Store arity
+  R@ CELL+ !      ( name-addr | R: entry-addr ) \ Store name-len
+  R> !            ( ) \ Store name-addr
 
   \ Increment count
   1 BOOK-COUNT +!
@@ -129,12 +124,13 @@ VARIABLE NAME-LEN  \ Length of current function name
 
   \ TEMP HACK: Replace term with a hard-coded U32 term with value 5
   DROP  \ Drop whatever PARSE-TERM returned
+  CLEARSTACK  \ Clear all junk from stack
   TAG-U32 0 5 PACK-TERM  ( hard-coded-term )
 
   \ Store in book dictionary (arity = 0 for now)
   \ Stack should be: ( name-addr name-len arity term )
   NAME-BUF NAME-LEN @ 0 ( term name-addr name-len arity )
-  4 ROLL ( name-addr name-len arity term )
+  3 ROLL ( name-addr name-len arity term )
   BOOK-PUT
 
   TRUE  \ Success
