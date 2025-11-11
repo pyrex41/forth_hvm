@@ -73,7 +73,7 @@
         "updatedAt": "2025-11-11T00:05:06.427Z"
       },
       {
-        "id": 1,
+        "id": "1",
         "title": "Setup Development Environment",
         "description": "Install Gforth (macOS) and create the initial project scaffold with modular Forth files.",
         "details": "Install Gforth using 'brew install gforth' (macOS). Create src/ directory with files: fvm.fs (main include), core.fs (primitives like tags, ALLOC), parse.fs (parser), heap.fs (heap management), reduce.fs (WHNF), interact.fs (interaction rules), collapse.fs (normalization), book.fs (book loading), cli.fs (CLI), errors.fs (error handling). Use Gforth's include mechanism for modularity. Ensure portability with ANSI Forth where possible.",
@@ -137,7 +137,7 @@
         "updatedAt": "2025-11-11T00:05:08.475Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Implement Error Handling Infrastructure",
         "description": "Create error handling system for parse errors, runtime errors, and debugging.",
         "details": "In errors.fs, implement error reporting words: PARSE-ERROR, RUNTIME-ERROR, AFFINE-ERROR. Add stack trace capability and graceful error messages. Implement DEBUG? flag for verbose output. Add utility words for assertions and validation.",
@@ -177,7 +177,7 @@
         "updatedAt": "2025-11-11T00:05:11.478Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implement Core Primitives and Heap Management",
         "description": "Define core primitives including tags, labs, and heap allocation with simple GC.",
         "details": "In core.fs, define constants for all IC tags from IC.md (LAM, APP, SUP, DUP, VAR, ERA, CTR, U32, etc.). Implement term packing/unpacking words for Forth CELL size. In heap.fs, implement ALLOC word for circular buffer heap (4k-16k cells). Add simple mark-sweep GC: traverse stack for roots, mark reachable, sweep free. Start with manual GC trigger, add automatic later.",
@@ -241,7 +241,7 @@
         "updatedAt": "2025-11-11T00:05:13.842Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implement Substitution Map",
         "description": "Create a substitution map for variable binding and resolution with affine tracking.",
         "details": "In core.fs or new subst.fs, CREATE SUBST 1024 CELLS ALLOT for name->loc mapping. Implement hash-based lookup for efficiency. Add SUBST-PUT ( name loc -- ) and SUBST-GET ( name -- loc|0 ). Implement affine variable tracking: SUBST-USE ( name -- ) increments use count, error if >1. Add SUBST-CLEAR for scope cleanup.",
@@ -281,7 +281,7 @@
         "updatedAt": "2025-11-11T00:05:16.656Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Build Parser for IC Grammar (Minimal Subset First)",
         "description": "Implement recursive descent parser for HVM files, starting with LAM, APP, VAR subset.",
         "details": "In parse.fs, implement tokenizer using Gforth's WORD or custom. Define PARSE-TERM as dispatcher. Start with minimal subset: PARSE-LAM (λx.body), PARSE-APP (@f x), PARSE-VAR (variable refs). Add error handling for malformed input. Output terms as heap-allocated structures. Defer full grammar (SUP, DUP, CTR, etc.) to later subtask.",
@@ -290,7 +290,7 @@
         "dependencies": [
           "4"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -368,10 +368,10 @@
         "complexity": 6,
         "recommendedSubtasks": 2,
         "expansionPrompt": "Separate into subtasks for loading and parsing books, and implementing global linking.",
-        "updatedAt": "2025-11-11T00:05:19.763Z"
+        "updatedAt": "2025-11-11T01:16:44.951Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implement Book Loading and Global Linking",
         "description": "Load parsed books into Forth dict with function definitions and linking.",
         "details": "In book.fs, implement LOAD-BOOK ( filename -- ) to parse HVM file with multiple definitions. Store functions in dictionary with name, arity, and term pointer. Implement function lookup: FIND-FUN ( name -- term-addr|0 ). Handle forward references with two-pass: first collect definitions, then resolve refs. Support HVM's '@name' reference syntax.",
@@ -422,7 +422,7 @@
         "expansionPrompt": "Break into subtasks for defining WHNF loop, implementing IS-VALUE? checks, and adding interpreted mode."
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Implement Reducer and WHNF Loop",
         "description": "Build the WHNF (Weak Head Normal Form) reducer loop for term evaluation.",
         "details": "In reduce.fs, define WHNF ( term -- whnf-term ) as main reduction loop. Implement IS-VALUE? ( term -- flag ) to check for LAM/SUP/CTR (values that don't reduce further). Loop: repeatedly apply one interaction step until value or stuck. Implement INTERACT-STEP ( term -- term' ) that dispatches to appropriate interaction rule. Add iteration counter for stats.",
@@ -431,7 +431,7 @@
         "dependencies": [
           "6"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -470,10 +470,11 @@
         ],
         "complexity": 9,
         "recommendedSubtasks": 6,
-        "expansionPrompt": "Create subtasks for each major interaction rule (e.g., APP-LAM, DUP-SUP) and adding compiled mode fast-paths."
+        "expansionPrompt": "Create subtasks for each major interaction rule (e.g., APP-LAM, DUP-SUP) and adding compiled mode fast-paths.",
+        "updatedAt": "2025-11-11T01:16:46.493Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implement Core Interaction Rules",
         "description": "Port 5-7 core interaction rules from INTERS.md as Forth words.",
         "details": "In interact.fs, implement essential rules: APP-LAM (beta reduction), APP-SUP, DUP-LAM, DUP-SUP, ANN-* (annihilation rules). Each rule: check if pattern matches, apply rewrite, return new term. Integrate with INTERACT-STEP dispatcher from Task 7. Reference INTERS.md for exact semantics. Start with interpreted mode (no optimization).",
@@ -564,7 +565,7 @@
         "expansionPrompt": "Split into subtasks for implementing collapse rules and adding renamer/pretty-printing."
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Extend Interaction Rules for Full Coverage",
         "description": "Implement remaining interaction rules for CTR, U32, OP2, and other IC constructs.",
         "details": "In interact.fs, add rules for constructors (CTR-DUP, CTR-APP), numbers (U32 operations), binary operations (OP2-*), and any remaining rules from INTERS.md. Ensure complete coverage of IC semantics. Add rule selection optimization if needed.",
@@ -614,7 +615,7 @@
         "expansionPrompt": "Divide into subtasks for argument parsing and implementing run/serve modes with stats."
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Implement Collapse and Normalization",
         "description": "Add collapse rules to fully normalize terms to λ-calculus and pretty-print.",
         "details": "In collapse.fs, implement full normalization: COLLAPSE ( term -- str ). Call WHNF first, then recursively reduce inside lambdas/ctrs (unlike WHNF which only reduces head). Implement SUP-LAM and other collapse-specific rules to eliminate all superpositions. Add RENAME pass for fresh variable names (α-conversion). Implement PRINT to output as λ-calculus string matching HVM3 format.",
@@ -677,7 +678,7 @@
         "expansionPrompt": "Break into subtasks for creating test scripts, building Docker setup, and implementing benchmarking."
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Build CLI and Run Mode",
         "description": "Implement command-line interface for 'run' mode with stats (defer 'serve' mode).",
         "details": "In cli.fs, parse command-line args. Implement 'run' mode: ./fvm run file.hvm [-C compiled] [-s stats] [-Q quiet]. Load file via LOAD-BOOK, run 'main' function, normalize result, print output. Add -C flag stub for future compiled mode. Implement -s flag: print MIPS = ITRS / TIME using Gforth's UTIME. Add -Q flag for minimal output (just result). Defer 'serve' socket mode to later.",
@@ -752,7 +753,7 @@
         ]
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Create Test Harness and Validation Scripts",
         "description": "Build test.sh script to compare FVM outputs with HVM3 baselines.",
         "details": "Create tests/test.sh that iterates examples/*.hvm, runs both HVM3 and FVM, compares normalized output strings. For each file: run 'cabal run hvm -- run $file -C -Q' for baseline, run './fvm run $file -Q' for FVM output, compare strings exactly. Report PASS/FAIL for each. Exit 1 if any fail. Add verbose mode showing diffs.",
@@ -800,7 +801,7 @@
         ]
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Integration Testing and Benchmarking",
         "description": "Run full test suite, implement benchmarking, create Docker environment.",
         "details": "Run test.sh on all HVM3 examples, fix failures iteratively. Create bench.sh for performance testing: run each bench_*.hvm, measure MIPS, compare with HVM3. Target ≥50% perf initially (80% is stretch goal). Create Dockerfile with Gforth, GHC, project files. Document build/run process. Generate performance report.",
@@ -859,14 +860,12 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-11T00:05:19.763Z",
+      "lastModified": "2025-11-11T01:16:46.493Z",
       "taskCount": 14,
-      "completedCount": 5,
+      "completedCount": 6,
       "tags": [
         "master"
-      ],
-      "created": "2025-11-11T00:06:05.894Z",
-      "description": "Tasks for master context"
+      ]
     }
   }
 }
