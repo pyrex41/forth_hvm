@@ -219,13 +219,14 @@ DEFER LINK-TERM
   BOOK-COUNT @ 0 ?DO
     \ Get the term for entry I
     I BOOK-ENTRY@ ( entry-addr )
-    DUP 3 CELLS + @ ( entry-addr term )
+    DUP >R ( entry-addr | R: entry-addr )
+    3 CELLS + @ ( term | R: entry-addr )
 
     \ Resolve all references in this term
-    LINK-TERM ( entry-addr term' )
+    LINK-TERM ( term' | R: entry-addr )
 
     \ Store back the resolved term
-    SWAP 3 CELLS + !
+    R> 3 CELLS + ! ( | R: )
   LOOP
 ;
 
