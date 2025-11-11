@@ -158,6 +158,7 @@ VARIABLE CURRENT-COL
 29 CONSTANT TOK-GE
 30 CONSTANT TOK-EQ
 31 CONSTANT TOK-NE
+32 CONSTANT TOK-COLON
 
 \ Token buffer (stores current token text)
 CREATE TOKEN-BUF 256 ALLOT
@@ -264,6 +265,11 @@ VARIABLE TOKEN-TYPE
   DUP 59 = IF  \ ;
     DROP NEXT-CHAR DROP
     TOK-SEMI 0 0 EXIT
+  THEN
+
+  DUP 58 = IF  \ :
+    DROP NEXT-CHAR DROP
+    TOK-COLON 0 0 EXIT
   THEN
 
   DUP 43 = IF  \ +
@@ -670,6 +676,187 @@ DEFER PARSE-TERM
   \ TODO: Should unbind variables here (pop scope)
 ;
 
+\ Parse pattern matching: ~n { 0: a, 1+p: b }
+\ Returns a desugared term using core IC primitives
+: PARSE-PATTERN-MATCH ( -- term )
+  \ Already consumed '~' token
+
+  \ Parse scrutinee variable
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-IDENT <> IF
+    2DROP DROP
+    S" Expected variable after ~" PARSE-ERROR
+    0 EXIT
+  THEN
+  ROT DROP ( addr len )
+
+  \ Look up scrutinee variable
+  SUBST-GET DUP 0= IF
+    DROP
+    S" Undefined scrutinee variable" PARSE-ERROR
+    0 EXIT
+  THEN
+  >R ( | R: scrut-loc )
+
+  \ For now, skip optional ! before { (strict evaluation)
+  \ We'll handle it in a future enhancement
+  NEXT-TOKEN ( type addr len )
+  2 PICK TOK-BANG = IF
+    \ Skip strict evaluation marker for now
+    2DROP DROP
+    NEXT-TOKEN ( type addr len )
+  THEN
+
+  \ Expect '{'
+  2 PICK TOK-LBRACE <> IF
+    2DROP DROP R> DROP
+    S" Expected '{' after scrutinee" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( | R: scrut-loc )
+
+  \ Parse case branches
+  \ For now, we expect exactly two cases: 0: and 1+:
+  \ First case should be 0:
+  NEXT-TOKEN ( type addr len | R: scrut-loc )
+  2 PICK TOK-NUMBER <> IF
+    2DROP DROP R> DROP
+    S" Expected '0' for zero case" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Check if it's actually "0"
+  ROT DROP ( addr len | R: scrut-loc )
+  OVER C@ 48 <> OVER 1 <> OR IF  \ Not "0"
+    2DROP R> DROP
+    S" Expected '0' for first case" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP ( | R: scrut-loc )
+
+  \ Expect ':'
+  NEXT-TOKEN ( type addr len | R: scrut-loc )
+  2 PICK TOK-COLON <> IF
+    2DROP DROP R> DROP
+    S" Expected ':' after 0" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( | R: scrut-loc )
+
+  \ Parse zero case body
+  PARSE-TERM ( zero-body | R: scrut-loc )
+
+  \ Expect ','  (optional - might have newline instead, so check for it or 1)
+  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
+  2 PICK TOK-COMMA = IF
+    2DROP DROP ( zero-body | R: scrut-loc )
+    NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
+  THEN
+
+  \ Second case should be 1+p: (successor)
+  2 PICK TOK-NUMBER <> IF
+    2DROP DROP DROP R> DROP
+    S" Expected '1' for successor case" PARSE-ERROR
+    0 EXIT
+  THEN
+
+  \ Check if it's "1"
+  ROT DROP ( zero-body addr len | R: scrut-loc )
+  OVER C@ 49 <> OVER 1 <> OR IF  \ Not "1"
+    2DROP DROP R> DROP
+    S" Expected '1' for successor case" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP ( zero-body | R: scrut-loc )
+
+  \ Expect '+'
+  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
+  2 PICK TOK-PLUS <> IF
+    2DROP DROP DROP R> DROP
+    S" Expected '+' after 1" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( zero-body | R: scrut-loc )
+
+  \ Parse binding variable (p in "1+p:")
+  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
+  2 PICK TOK-IDENT <> IF
+    2DROP DROP DROP R> DROP
+    S" Expected binding variable after 1+" PARSE-ERROR
+    0 EXIT
+  THEN
+  ROT DROP ( zero-body addr len | R: scrut-loc )
+
+  \ Create binding for successor variable (p = scrut - 1)
+  \ Get a fresh binding ID for the successor variable
+  FRESH-BIND-ID ( zero-body addr len succ-bind-id | R: scrut-loc )
+  DUP >R ( zero-body addr len succ-bind-id | R: scrut-loc succ-bind-id )
+
+  \ Store binding: name -> bind-id
+  SUBST-PUT ( zero-body | R: scrut-loc succ-bind-id )
+
+  \ Expect ':'
+  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc succ-bind-id )
+  2 PICK TOK-COLON <> IF
+    2DROP DROP DROP R> R> 2DROP
+    S" Expected ':' after binding variable" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( zero-body | R: scrut-loc succ-bind-id )
+
+  \ Parse successor case body
+  PARSE-TERM ( zero-body succ-body | R: scrut-loc succ-bind-id )
+
+  \ Expect '}'
+  NEXT-TOKEN ( zero-body succ-body type addr len | R: scrut-loc succ-bind-id )
+  2 PICK TOK-RBRACE <> IF
+    2DROP DROP 2DROP R> R> 2DROP
+    S" Expected '}' after pattern cases" PARSE-ERROR
+    0 EXIT
+  THEN
+  2DROP DROP ( zero-body succ-body | R: scrut-loc succ-bind-id )
+
+  \ Create MATCH term
+  \ Heap layout: [scrut-loc, zero-body, succ-bind-id, succ-body]
+  \ Stack: ( zero-body succ-body | R: scrut-loc succ-bind-id )
+
+  \ Pop from return stack
+  R> ( zero-body succ-body succ-bind-id )
+  R> ( zero-body succ-body succ-bind-id scrut-loc )
+
+  \ Reorder stack to: scrut-loc zero-body succ-bind-id succ-body
+  \ Current: zero-body succ-body succ-bind-id scrut-loc
+  \ Use: ROT to bring zero-body to top, then manipulate
+  >R >R >R ( zero-body | R: succ-body succ-bind-id scrut-loc )
+  R> ( zero-body scrut-loc | R: succ-body succ-bind-id )
+  SWAP ( scrut-loc zero-body | R: succ-body succ-bind-id )
+  R> R> ( scrut-loc zero-body succ-bind-id succ-body )
+
+  \ Allocate heap space for MATCH term
+  4 ALLOC DUP >R ( scrut-loc zero-body succ-bind-id succ-body match-loc | R: match-loc )
+
+  \ Store all 4 values
+  \ We'll store them one at a time
+  OVER OVER 3 CELLS + ! ( scrut-loc zero-body succ-bind-id match-loc | R: match-loc )
+    \ match-loc[3] = succ-body
+
+  2 PICK OVER 2 CELLS + ! ( scrut-loc zero-body match-loc | R: match-loc )
+    \ match-loc[2] = succ-bind-id
+
+  2 PICK OVER CELL+ ! ( scrut-loc match-loc | R: match-loc )
+    \ match-loc[1] = zero-body
+
+  2 PICK OVER ! ( scrut-loc match-loc | R: match-loc )
+    \ match-loc[0] = scrut-loc
+
+  \ Clean up stack
+  NIP ( match-loc | R: match-loc )
+  R> DROP ( match-loc )
+
+  \ Create MATCH term: TAG-MATCH lab=0 val=match-loc
+  TAG-MATCH 0 ROT PACK-TERM
+;
+
 \ Parse constructor: #Tag{field1, field2, ...}
 : PARSE-CTR ( -- term )
   \ Expect tag identifier
@@ -870,6 +1057,12 @@ DEFER PARSE-TERM
   2 PICK TOK-HASH = IF
     2DROP DROP
     PARSE-CTR EXIT
+  THEN
+
+  \ Pattern match: ~n { ... } ( type addr len )
+  2 PICK TOK-TILDE = IF
+    2DROP DROP
+    PARSE-PATTERN-MATCH EXIT
   THEN
 
   \ Unknown token

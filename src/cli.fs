@@ -141,6 +141,17 @@ DEFER .TERM
     CELL+ @ .TERM ." )" EXIT
   THEN
 
+  \ MATCH: ~x{0: zero_body, 1+p: succ_body}
+  DUP TAG-MATCH = IF
+    DROP DUP GET-VAL ( term match-addr )
+    ." ~x" OVER @ . ." {"  \ Print scrutinee location
+    DUP CELL+ @ ( term match-addr zero-body )
+    ." 0:" .TERM ." ,"
+    OVER 2 CELLS + @ ( term match-addr succ-bind-id )
+    ." 1+p" . ." :"
+    3 CELLS + @ .TERM ." }" EXIT
+  THEN
+
   DROP DROP ." <unknown>"
 ; IS .TERM
 

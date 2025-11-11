@@ -427,6 +427,71 @@ DEFER SUBST-WALK
   R> DROP R> DROP
 ;
 
+\ MATCH-REDUCE: Pattern matching on U32
+\ ~n { 0: zero_case, 1+p: succ_case }
+\ Heap layout: [scrut-loc, zero-body, succ-bind-id, succ-body]
+: MATCH-REDUCE ( match-term -- reduced-term )
+  \ Get match data from heap
+  DUP GET-VAL ( match-term match-loc )
+
+  \ Load all 4 values from heap
+  DUP @ ( match-term match-loc scrut-loc )
+  OVER CELL+ @ ( match-term match-loc scrut-loc zero-body )
+  2 PICK 2 CELLS + @ ( match-term match-loc scrut-loc zero-body succ-bind-id )
+  3 PICK 3 CELLS + @ ( match-term match-loc scrut-loc zero-body succ-bind-id succ-body )
+
+  \ Clean up match-term and match-loc from stack
+  >R >R >R ( match-term match-loc scrut-loc | R: succ-body succ-bind-id zero-body )
+  NIP ( scrut-loc | R: succ-body succ-bind-id zero-body )
+
+  \ Look up scrutinee value (it's a VAR location)
+  TAG-VAR 0 ROT PACK-TERM ( scrut-var-term | R: succ-body succ-bind-id zero-body )
+
+  \ Reduce scrutinee to WHNF to get actual value
+  WHNF ( scrut-whnf | R: succ-body succ-bind-id zero-body )
+
+  \ Check if it's a U32
+  DUP GET-TAG TAG-U32 <> IF
+    \ Not a U32 - error or stuck
+    \ For now, return ERA as placeholder
+    DROP R> R> R> 2DROP DROP
+    TAG-ERA 0 0 PACK-TERM EXIT
+  THEN
+
+  \ Get the U32 value
+  DUP GET-VAL ( scrut-whnf n-value | R: succ-body succ-bind-id zero-body )
+
+  \ Check if it's 0
+  DUP 0= IF
+    \ Zero case: return zero_body
+    2DROP ( | R: succ-body succ-bind-id zero-body )
+    R> NIP R> R> 2DROP ( zero-body )
+    EXIT
+  THEN
+
+  \ Non-zero case: compute p = n - 1
+  1- ( scrut-whnf p-value | R: succ-body succ-bind-id zero-body )
+
+  \ Create U32 term for p
+  TAG-U32 0 ROT PACK-TERM ( scrut-whnf p-term | R: succ-body succ-bind-id zero-body )
+
+  \ Store p in SUBST map using succ-bind-id
+  NIP ( p-term | R: succ-body succ-bind-id zero-body )
+  R> DROP ( p-term | R: succ-body zero-body )
+  R> ( p-term succ-bind-id | R: succ-body )
+  SWAP ( succ-bind-id p-term | R: succ-body )
+
+  \ We need to bind p to the SUBST map
+  \ But we only have the bind-id, not the variable name
+  \ For now, let's substitute directly in succ_body using SUBST-WALK
+  R> ( succ-bind-id p-term succ-body )
+  -ROT ( succ-body succ-bind-id p-term )
+  SUBST-WALK ( succ-body' )
+
+  \ Clean up and return
+  R> DROP ( succ-body' )
+;
+
 \ Test word
 : TEST-INTERACT ( -- )
   ." Interact module loaded" CR

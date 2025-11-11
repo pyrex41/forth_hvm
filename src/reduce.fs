@@ -84,6 +84,11 @@ VARIABLE ITR-COUNT
     DROP OP2-U32 EXIT
   THEN
 
+  \ Handle MATCH: pattern matching on U32
+  DUP TAG-MATCH = IF
+    DROP MATCH-REDUCE EXIT
+  THEN
+
   DROP  \ No reduction possible - already a value or stuck
 ;
 
