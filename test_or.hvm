@@ -1,0 +1,4 @@
+// Test bitwise OR operator
+// (| 12 10) should return 14
+// 1100 | 1010 = 1110 = 14
+main = (| 12 10)

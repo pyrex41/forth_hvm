@@ -1,0 +1,3 @@
+// Test less-than operator
+// (< 3 10) should return 1 (true)
+main = (< 3 10)

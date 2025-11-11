@@ -1,0 +1,3 @@
+// Test equality operator
+// (== 10 10) should return 1 (true)
+main = (== 10 10)

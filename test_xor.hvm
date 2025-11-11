@@ -1,0 +1,4 @@
+// Test bitwise XOR operator
+// (^ 12 10) should return 6
+// 1100 ^ 1010 = 0110 = 6
+main = (^ 12 10)
