@@ -6,6 +6,7 @@ set -e
 SCRIPT_DIR="$(dirname "$0")"
 STATS=""
 QUIET=""
+NORMALIZE=""
 FILE=""
 
 # Parse arguments
@@ -19,17 +20,23 @@ while [[ $# -gt 0 ]]; do
       QUIET="-Q"
       shift
       ;;
+    -N)
+      NORMALIZE="-N"
+      shift
+      ;;
     -h|--help)
       echo "Usage: fvm [options] run <file.hvm>"
       echo ""
       echo "Options:"
       echo "  -s         Show statistics (MIPS)"
       echo "  -Q         Quiet mode"
+      echo "  -N         Full normalization (reduce inside lambdas)"
       echo "  -h, --help Show this help"
       echo ""
       echo "Example:"
       echo "  fvm run examples/test_add.hvm"
       echo "  fvm -s run examples/test_add.hvm"
+      echo "  fvm -N -s run examples/identity.hvm"
       exit 0
       ;;
     run)
@@ -66,7 +73,7 @@ fi
 FILE_ABS="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
 
 # Build Forth command
-FORTH_CMD="$STATS $QUIET S\\\" $FILE_ABS\\\" RUN-FILE bye"
+FORTH_CMD="$STATS $QUIET $NORMALIZE S\\\" $FILE_ABS\\\" RUN-FILE bye"
 
 # Run
 cd "$SCRIPT_DIR/src"

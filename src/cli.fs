@@ -4,10 +4,12 @@
 VARIABLE COMPILED?
 VARIABLE STATS?
 VARIABLE QUIET?
+VARIABLE NORMALIZE?
 
 0 COMPILED? !
 0 STATS? !
 0 QUIET? !
+0 NORMALIZE? !
 
 \ Timing variables
 VARIABLE START-TIME
@@ -38,62 +40,109 @@ VARIABLE END-TIME
   R> CLOSE-FILE DROP
 ;
 
-\ Pretty-print a term (simple version)
-: .TERM ( term -- )
+\ Pretty-print a term (recursive version)
+DEFER .TERM
+
+: .OP2-NAME ( opcode -- )
+  DUP 0 = IF DROP ." +" EXIT THEN
+  DUP 1 = IF DROP ." -" EXIT THEN
+  DUP 2 = IF DROP ." *" EXIT THEN
+  DUP 3 = IF DROP ." /" EXIT THEN
+  DUP 4 = IF DROP ." %" EXIT THEN
+  DUP 5 = IF DROP ." &" EXIT THEN
+  DUP 6 = IF DROP ." |" EXIT THEN
+  DUP 7 = IF DROP ." ^" EXIT THEN
+  DUP 8 = IF DROP ." <<" EXIT THEN
+  DUP 9 = IF DROP ." >>" EXIT THEN
+  DUP 10 = IF DROP ." <" EXIT THEN
+  DUP 11 = IF DROP ." >" EXIT THEN
+  DUP 12 = IF DROP ." <=" EXIT THEN
+  DUP 13 = IF DROP ." >=" EXIT THEN
+  DUP 14 = IF DROP ." ==" EXIT THEN
+  DUP 15 = IF DROP ." !=" EXIT THEN
+  DROP ." ?op?"
+;
+
+:NONAME ( term -- )
   DUP GET-TAG
 
-  \ LAM
+  \ LAM: λx.body
   DUP TAG-LAM = IF
-    DROP ." (.x <body>)" EXIT
+    DROP DUP GET-LAB ( term bind-id )
+    ." λx" . ." ."
+    GET-VAL @ .TERM EXIT
   THEN
 
-  \ APP
+  \ APP: (fun arg)
   DUP TAG-APP = IF
-    DROP ." (<fun> <arg>)" EXIT
+    DROP DUP GET-VAL ( term app-addr )
+    ." (" DUP @ .TERM SPACE
+    CELL+ @ .TERM ." )" EXIT
   THEN
 
-  \ SUP
+  \ SUP: &L{a,b}
   DUP TAG-SUP = IF
-    DROP DUP GET-LAB ." &" . ." {<a>,<b>}" EXIT
+    DROP DUP GET-LAB ( term label )
+    ." &" . ." {"
+    DUP GET-VAL ( term sup-addr )
+    DUP @ .TERM ." ,"
+    CELL+ @ .TERM ." }" EXIT
   THEN
 
-  \ DUP
+  \ DUP: !&L{r,s}=target;cont
   DUP TAG-DUP = IF
-    DROP DUP GET-LAB ." !&" . ." {<r>,<s>}=<t>;K" EXIT
+    DROP DUP GET-LAB ( term label )
+    ." !&" . ." {r,s}="
+    DUP GET-VAL ( term dup-addr )
+    DUP @ .TERM ." ;"
+    CELL+ @ .TERM EXIT
   THEN
 
-  \ ERA
+  \ ERA: *
   DUP TAG-ERA = IF
     DROP DROP ." *" EXIT
   THEN
 
-  \ VAR
+  \ VAR: x123
   DUP TAG-VAR = IF
-    DROP DUP GET-VAL ." x" . EXIT
+    DROP GET-VAL ." x" . EXIT
   THEN
 
-  \ U32
+  \ U32: number
   DUP TAG-U32 = IF
     DROP GET-VAL . EXIT
   THEN
 
-  \ CTR
+  \ CTR: #Tag{field1,field2}
   DUP TAG-CTR = IF
-    DROP ." #<ctr>" EXIT
+    DROP DUP GET-LAB ( term tag-id )
+    ." #" EMIT ." {"
+    GET-VAL ( fields-addr )
+    DUP 0= IF
+      DROP ." }"
+    ELSE
+      DUP @ .TERM
+      CELL+ @ ." ," .TERM ." }"
+    THEN
+    EXIT
   THEN
 
-  \ REF
+  \ REF: @name
   DUP TAG-REF = IF
-    DROP ." @<ref>" EXIT
+    DROP ." @ref" EXIT
   THEN
 
-  \ OP2
+  \ OP2: (op lhs rhs)
   DUP TAG-OP2 = IF
-    DROP ." <op2>" EXIT
+    DROP DUP GET-LAB ( term opcode )
+    ." (" .OP2-NAME SPACE
+    GET-VAL ( op2-addr )
+    DUP @ .TERM SPACE
+    CELL+ @ .TERM ." )" EXIT
   THEN
 
   DROP DROP ." <unknown>"
-;
+; IS .TERM
 
 \ Run mode
 : RUN-FILE ( c-addr u -- )
@@ -134,8 +183,12 @@ VARIABLE END-TIME
   0 ITR-COUNT !
   UTIME DROP START-TIME !
 
-  \ Reduce to WHNF
-  WHNF ( result )
+  \ Reduce to WHNF or full normalization
+  NORMALIZE? @ IF
+    NORMALIZE ( result )
+  ELSE
+    WHNF ( result )
+  THEN
 
   \ Stop timer
   UTIME DROP END-TIME !
@@ -189,6 +242,11 @@ VARIABLE END-TIME
   -1 QUIET? !
 ;
 
+\ Set normalize flag
+: -N ( -- )
+  -1 NORMALIZE? !
+;
+
 \ Main entry point for running a file
 : RUN ( -- )
   \ Usage: S" filename.hvm" RUN
@@ -205,13 +263,15 @@ VARIABLE END-TIME
 
 \ Help text
 : .HELP ( -- )
-  ." Usage: fvm run <file.hvm> [-C] [-s] [-Q]" CR
+  ." Usage: fvm run <file.hvm> [-C] [-s] [-Q] [-N]" CR
   ."   -C  Compiled mode (not yet implemented)" CR
   ."   -s  Show statistics" CR
   ."   -Q  Quiet mode (minimal output)" CR
+  ."   -N  Full normalization (reduce inside lambdas)" CR
   CR
   ." In Gforth:" CR
   ."   -s                    \ Enable stats" CR
+  ."   -N                    \ Enable normalization" CR
   ."   S\" file.hvm\" RUN      \ Run file" CR
 ;
 
