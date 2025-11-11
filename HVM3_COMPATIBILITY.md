@@ -47,21 +47,42 @@ ForthVM implements the **core Interaction Calculus** as specified in HVM3's IC.m
 - ✅ **Flags:** `-s` (stats), `-Q` (quiet), `-N` (normalize)
 - ✅ **Pretty-printing:** Recursive term display
 
+## ✅ Pattern Matching (Partially Implemented)
+
+ForthVM now supports **basic numeric pattern matching**:
+- ✅ **Numeric patterns:** `~n { 0: a, 1+p: b }` syntax
+- ✅ **Zero case:** `0: expr` matches when scrutinee is 0
+- ✅ **Successor case:** `1+p: expr` matches when scrutinee > 0, binding p to n-1
+- ✅ **Runtime reduction:** MATCH term type with proper reduction rules
+
+**Example that now works in ForthVM:**
+```haskell
+@count = .n .k ~n { 0: k, 1+p: @count(p, (+ k 2)) }
+@main = @count(10, 0)
+// Result: 20
+```
+
 ## ❌ What ForthVM Does NOT Implement (HVM3 Extensions)
 
-### Pattern Matching (Not Implemented)
-HVM3 has sophisticated pattern matching with:
-- ❌ **Strict evaluation:** `!n` for forcing evaluation
-- ❌ **Case matching:** `0: expr` and `1+p: expr` syntax
-- ❌ **Numeric patterns:** Matching on U32 values
+### Advanced Pattern Matching Features (Not Implemented)
+HVM3 has additional pattern matching features:
+- ❌ **Strict evaluation in parameters:** `@count(!n k)` syntax
+- ❌ **Strict evaluation before match:** `~n !k` (we parse but ignore `!k`)
 - ❌ **Constructor patterns:** Matching on ADT constructors
+- ❌ **Wildcard patterns:** `_:` catch-all case
+- ❌ **Nested patterns:** Pattern matching within case branches
 
-**Example HVM3 has, ForthVM cannot parse:**
+**Example HVM3 has, ForthVM cannot fully handle:**
 ```haskell
 @count(!n k) = ~n !k {
   0: k
   1+p: @count(p,(+ k 2))
 }
+```
+
+**ForthVM equivalent (without strict eval):**
+```haskell
+@count = .n .k ~n { 0: k, 1+p: @count(p, (+ k 2)) }
 ```
 
 ### Syntax Sugar (Not Implemented)
@@ -114,7 +135,7 @@ From IC.md, collapsing rules to eliminate SUPs/DUPs:
 | Constructors | ✅ Basic | ✅ + Patterns | Partial |
 | WHNF Reduction | ✅ Yes | ✅ Yes | Compatible |
 | Full Normalization | ✅ Yes | ✅ Yes | Compatible |
-| Pattern Matching | ❌ No | ✅ Yes | **Incompatible** |
+| Pattern Matching | ✅ Numeric | ✅ Full | **Partial** |
 | Local Bindings Sugar | ❌ No | ✅ Yes | **Incompatible** |
 | Numeric Literals | ✅ Basic | ✅ + Separators | Partial |
 | Collapse Rules | ❌ No | ✅ Yes | **Not implemented** |
@@ -131,14 +152,21 @@ Programs using only core IC features:
 - ✅ Constructors (simple, non-pattern-matched)
 - ✅ Multi-function programs with @-references
 
+### Tests ForthVM CAN NOW Run (with modifications)
+Programs that can be adapted to ForthVM syntax:
+- ✅ bench_count.hvm (remove strict eval `!n` syntax, use plain parameters)
+- ✅ Programs with numeric patterns (basic `~n { 0:, 1+p: }` syntax)
+- ✅ Recursive functions using pattern matching
+
 ### Tests ForthVM CANNOT Run
-Programs using HVM3 extensions:
-- ❌ bench_count.hvm (uses pattern matching)
-- ❌ bench_cnots.hvm (uses pattern matching)
-- ❌ enum_*.hvm (uses pattern matching extensively)
+Programs using advanced HVM3 features:
+- ❌ bench_count.hvm (original - uses strict eval `!n` in parameters)
+- ❌ bench_cnots.hvm (uses constructor patterns)
+- ❌ enum_*.hvm (uses constructor patterns extensively)
 - ❌ feat_*.hvm (uses advanced features)
-- ❌ Any program with `!var =` sugar
-- ❌ Any program with case expressions `0:`, `1+p:`
+- ❌ Any program with `!var =` local binding sugar
+- ❌ Programs with constructor patterns `#Nil:`, `#Cons{h t}:`
+- ❌ Programs with underscored numbers `2_000_000`
 
 ## ✅ Verified Correctness
 
@@ -180,14 +208,15 @@ Result: `60` ✅
 **ForthVM is:**
 - ✅ A **complete, correct implementation** of the core Interaction Calculus
 - ✅ **100% compatible** with IC.md specification
-- ✅ Suitable for running **pure IC programs**
+- ✅ Supports **numeric pattern matching** (~n { 0:, 1+p: })
+- ✅ Suitable for running **pure IC programs and simple HVM3 programs**
 - ✅ Excellent for **learning and experimentation**
 
 **ForthVM is NOT:**
 - ❌ A complete replacement for HVM3
-- ❌ Compatible with HVM3's pattern matching syntax
+- ❌ Compatible with all HVM3 features (strict eval, constructor patterns)
 - ❌ Optimized for production workloads
-- ❌ Able to run most HVM3 example programs
+- ❌ Able to run unmodified HVM3 example programs (need syntax adaptation)
 
 **Use ForthVM when:**
 - You want to learn Interaction Calculus fundamentals
