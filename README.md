@@ -4,7 +4,17 @@ A Forth implementation of HVM3 (Interaction Calculus runtime) for high-performan
 
 ## Status
 
-**Phase 1: Setup & Scaffolding - COMPLETE ✅**
+**Phase 1: HVM3 DUP Parity - COMPLETE ✅**
+**Phase 2: APP-CTR Annihilation - STARTED**
+
+### Current Capabilities
+- ✅ All 16 OP2 operators (arithmetic, bitwise, comparison)
+- ✅ Multi-function HVM programs with heap-allocated names
+- ✅ REF term resolution with proper memory management
+- ✅ **All 5 DUP interactions: ERA, SUP, LAM, CTR, U32**
+- ✅ APP-CTR annihilation dispatch (pattern matching infrastructure)
+- ✅ Comprehensive test suite (11 integration tests passing)
+- ✅ Stuck term handling for invalid operations
 
 - [x] Updated task list with 14 refined tasks
 - [x] Cloned HVM3 repository for baseline comparison

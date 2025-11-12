@@ -642,9 +642,9 @@ DEFER PARSE-TERM
   THEN
   ROT DROP ( label addr len )
 
-  \ Allocate location for first binding
-  3 ALLOC ( label addr len loc1 )
-  SUBST-PUT ( label )
+   \ Allocate location for first binding
+   3 ALLOC ( label addr len loc1 )
+   SUBST-PUT ( label )
 
   \ Expect ','
   NEXT-TOKEN ( label type addr len )
@@ -664,9 +664,9 @@ DEFER PARSE-TERM
   THEN
   ROT DROP ( label addr len )
 
-  \ Allocate location for second binding
-  3 ALLOC ( label addr len loc2 )
-  SUBST-PUT ( label )
+   \ Allocate location for second binding
+   3 ALLOC ( label addr len loc2 )
+   \ SUBST-PUT ( label )
 
   \ Expect '}'
   NEXT-TOKEN ( label type addr len )

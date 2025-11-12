@@ -3,9 +3,11 @@
 \ Forward declarations for interaction rules (defined in interact.fs)
 DEFER APP-LAM
 DEFER APP-SUP
+DEFER APP-CTR
 DEFER DUP-ERA
 DEFER DUP-LAM
 DEFER DUP-SUP
+DEFER DUP-U32
 DEFER CTR-DUP
 DEFER OP2-U32
 DEFER MATCH-REDUCE
@@ -57,6 +59,12 @@ VARIABLE ITR-COUNT
       APP-SUP EXIT
     THEN
 
+    \ APP-CTR: (#T{fields} arg) -> pattern matching
+    DUP TAG-CTR = IF
+      DROP ( term ) \ Will implement APP-CTR
+      APP-CTR EXIT
+    THEN
+
     DROP 2DROP 0 EXIT  \ Stuck term
   THEN
 
@@ -87,6 +95,12 @@ VARIABLE ITR-COUNT
     DUP TAG-CTR = IF
       DROP ( term ) \ Implement CTR-DUP
       CTR-DUP EXIT
+    THEN
+
+    \ DUP-U32: ! &L{r,s} = n; K -> r <- n, s <- n; K
+    DUP TAG-U32 = IF
+      DROP ( term ) \ Implement DUP-U32
+      DUP-U32 EXIT
     THEN
 
     DROP 2DROP 0 EXIT  \ Stuck term

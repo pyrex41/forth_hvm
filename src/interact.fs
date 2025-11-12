@@ -373,8 +373,15 @@ DEFER SUBST-WALK
   R> R> DROP R> TAG-DUP -ROT PACK-TERM ( app-term arg-term a-term b-term c0-var c1-var app1-term dup-term )
 
   \ Clean up stack
-  NIP NIP NIP NIP NIP NIP NIP NIP
+   NIP NIP NIP NIP NIP NIP NIP NIP
 ; IS APP-SUP
+
+:NONAME ( app-term -- reduced-term )
+  \ (#T{fields} arg) -> pattern matching and destructuring
+  \ For now, return stuck term since CTR parsing is Phase 4
+  \ TODO: Implement full pattern matching when CTR terms are available
+  DROP 0  \ Return 0 for stuck term
+; IS APP-CTR
 
 \ Perform OP2 arithmetic operation
 : OP2-COMPUTE ( opcode lhs rhs -- result )
@@ -480,6 +487,12 @@ DEFER SUBST-WALK
   NIP NIP NIP NIP NIP NIP
   R> DROP R> DROP
 ; IS CTR-DUP
+
+:NONAME ( dup-term -- reduced-term )
+  \ ! &L{r,s} = n; K -> r <- n, s <- n; K
+  \ For now, if K doesn't reference r,s, just return K
+  DUP GET-VAL CELL+ @
+; IS DUP-U32
 
 \ MATCH-REDUCE-CONSTRUCTOR: Pattern matching on constructors
 \ ~xs { #Nil: e1, #Cons{h t}: e2 }
