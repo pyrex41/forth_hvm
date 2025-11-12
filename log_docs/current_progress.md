@@ -1,12 +1,30 @@
 # ForthVM Current Progress
 
-**Last Updated:** January 11, 2025 (Multi-Function Support Implemented!)
-**Project Status:** 🟢 Excellent Progress - Multi-Function HVM Files Now Supported!
+**Last Updated:** January 11, 2025 (Bug #21 & #22 Critical Memory Fixes!)
+**Project Status:** 🟢 Excellent Progress - Critical Memory Management Bugs Fixed!
 **Completion:** ~95% of core IC functionality
 
 ---
 
-## Recent Accomplishments (January 11, 2025 - Multi-Function Session)
+## Recent Accomplishments (January 11, 2025 - Bug #21 & #22 Session)
+
+### 🎉 Bug #21 & #22 CRITICAL FIXES COMPLETE
+- ✅ **Bug #21 FIXED** - REF Memory Management (Dangling Pointer Issue)
+  - **Root cause**: PARSE-VAR stored direct pointers to INPUT-BUF (temporary buffer)
+  - **Impact**: By time LINK-REFS ran, INPUT-BUF was reused, causing dangling pointer crashes
+  - **Solution**: Allocate heap space for REF name strings using CMOVE pattern (src/parse.fs:346-368)
+  - **Test**: test_nested_ref.hvm (`f = 5`, `main = @f`) now returns correct result: 5
+
+- ✅ **Bug #22 FIXED** - Stuck Term Handling in WHNF
+  - **Root cause**: WHNF lost original term when INTERACT-STEP returned 0 (stuck term)
+  - **Impact**: Crashed with "Invalid memory address" when trying to interpret 0 as term
+  - **Solution**: Save term on R-stack before INTERACT-STEP, restore if stuck (src/reduce.fs:115-126)
+  - **Test**: test_app_with_ref.hvm (`f = 5`, `main = (@f 3)`) returns stuck term gracefully
+
+- ✅ **All regression tests pass** - No regressions from fixes
+- ✅ **Multi-function support** - Still working correctly after fixes
+
+## Previous Accomplishments (January 11, 2025 - Earlier Sessions)
 
 ### 🎉 Multi-Function Support IMPLEMENTED
 - ✅ **Fixed NAME-BUF limitation** - Each function now has heap-allocated name storage
@@ -62,17 +80,30 @@
    - Token cleanup in OP2 entry (parse.fs:1180)
    - Operand order in OP2-U32 (interact.fs:413-414)
 6. ✅ **Bug #18** - Misdiagnosed, actually was Bug #20
-7. ✅ **Bug #20** - REF name storage order (parse.fs:352-354) **FIXED THIS SESSION**
-
-8. ✅ **Bug #19** - OP2 Stack Corruption **FIXED THIS SESSION**
+7. ✅ **Bug #19** - OP2 Stack Corruption
    - **Severity:** Critical
    - **Impact:** All OP2 operators except ADD returned incorrect results
    - **Root Causes:** TWO separate bugs found:
      1. Token extraction (parse.fs:1186) - `ROT 2DROP` left address instead of token type
      2. Operand order (interact.fs:384-396) - `SWAP` reversed non-commutative operations
    - **Status:** Both bugs fixed, all arithmetic operators now work correctly
+8. ✅ **Bug #20** - REF name storage order (parse.fs:352-354)
 
-**Total Bugs Fixed Today:** 20 bugs identified, 20 bugs fixed!
+9. ✅ **Bug #21** - REF Memory Management (Dangling Pointer) **FIXED THIS SESSION**
+   - **Severity:** Critical - Memory Safety
+   - **Impact:** Nested @ref in APP crashed with "Invalid memory address"
+   - **Root Cause:** PARSE-VAR stored direct pointers to INPUT-BUF (temporary buffer). By time LINK-REFS ran to resolve references, INPUT-BUF had been reused for other parsing, causing dangling pointer crashes.
+   - **Solution:** Modified PARSE-VAR to allocate heap space for REF name strings and copy them using CMOVE pattern from BOOK-PUT (src/parse.fs:346-368)
+   - **Status:** FIXED - test_nested_ref.hvm now works correctly
+
+10. ✅ **Bug #22** - Stuck Term Handling in WHNF **FIXED THIS SESSION**
+    - **Severity:** Critical - Reduction Engine
+    - **Impact:** APP with non-LAM function (e.g., APP(U32, arg)) crashed instead of returning stuck term
+    - **Root Cause:** WHNF's reduction loop consumed term when calling INTERACT-STEP. When INTERACT-STEP returned 0 (stuck term indicator), the original term was lost from the stack, causing subsequent code to crash.
+    - **Solution:** Modified WHNF to save original term on R-stack before each INTERACT-STEP call. If INTERACT-STEP returns 0, restore original term (src/reduce.fs:115-126)
+    - **Status:** FIXED - test_app_with_ref.hvm now returns stuck term gracefully
+
+**Total Bugs Fixed:** 22 bugs identified, 22 bugs fixed!
 
 ---
 
@@ -215,23 +246,46 @@ ROT 2DROP  \ ( type addr len -- type )
 
 ## Next Steps
 
-### Immediate Priority (Next Session)
-1. **Test Additional OP2 Operators**
-   - Create tests for comparison operators (<, >, <=, >=, ==, !=)
-   - Create tests for bitwise operators (&, |, ^, <<, >>)
-   - Verify all operators work with fix
+### Immediate Priority (Current Session - Full HVM3 Parity)
 
-3. **Clean Up Debug Files**
-   - Remove or organize 26+ debug_*.fs files
-   - Consider adding to .gitignore
+**Phase 1: Complete DUP Interactions** (NEXT)
+- [ ] DUP-LAM: Distribute lambda over duplication
+- [ ] DUP-SUP: Handle label matching/superposition
+- [ ] DUP-U32: Copy U32 values
+- [ ] DUP-OP2: Distribute OP2 over duplication
+- [ ] DUP-MATCH: Distribute MATCH over duplication
+
+**Phase 2: Complete APP Interactions**
+- [ ] APP-CTR: Constructor annihilation rules
+- [ ] Pattern matching integration with APP
+
+**Phase 3: MATCH Term**
+- [ ] Parsing: `match x { 0: a; +: b }`
+- [ ] Reduction: MATCH-U32 interaction
+- [ ] Zero case and successor case handling
+
+**Phase 4: CTR (Constructor) Term**
+- [ ] Full CTR parsing with multiple fields
+- [ ] CTR-CTR annihilation (pattern matching)
+- [ ] Constructor tagging and field access
+
+**Phase 5: File I/O**
+- [ ] SLURP-FILE integration
+- [ ] Command-line argument handling
+- [ ] Error handling for file operations
+
+**Phase 6: Test Suite**
+- [ ] Comprehensive test coverage for all interactions
+- [ ] Edge case testing
+- [ ] Performance benchmarks
+- [ ] HVM3 compatibility tests
 
 ### Medium-Term Goals
-1. Fix .TERM crash for non-U32 results
-2. Implement multi-function support (NAME-BUF copying)
+1. Clean up debug files (26+ debug_*.fs files)
+2. Fix .TERM crash for non-U32 results
 3. Test with more complex HVM3 examples
-4. Implement collapse rules for full normalization
-5. Add pretty-printing for λ-calculus output
-6. Performance optimization
+4. Add pretty-printing for λ-calculus output
+5. Performance optimization
 
 ---
 
