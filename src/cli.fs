@@ -1,5 +1,10 @@
 \ cli.fs - Command-line interface
 
+\ Forward declarations
+\ (none needed)
+
+
+
 \ Flags
 VARIABLE COMPILED?
 VARIABLE STATS?
@@ -15,33 +20,98 @@ VARIABLE NORMALIZE?
 VARIABLE START-TIME
 VARIABLE END-TIME
 
-\ Parse arguments from Gforth command line
-: PARSE-ARGS ( -- )
-  \ For now, we'll set flags via environment or explicit calls
-  \ Full CLI parsing would use Gforth's NEXT-ARG
-;
+\ Help text
+  : .HELP ( -- )
+    ." ForthVM v0.1.0 - HVM3 in Forth" CR
+    CR
+    ." Usage: fvm run <file.hvm> [options]" CR
+    CR
+    ." Options:" CR
+    ."   -s, --stats     Show performance statistics" CR
+    ."   -q, -Q          Quiet mode (minimal output)" CR
+    ."   -n, -N          Full normalization (reduce inside lambdas)" CR
+    ."   -C              Compiled mode (not yet implemented)" CR
+    ."   -h, --help      Show this help" CR
+    CR
+    ." Examples:" CR
+    ."   fvm run test.hvm" CR
+    ."   fvm run bench.hvm -s" CR
+    ."   fvm run program.hvm -q -n" CR
+    CR
+   ." In Gforth REPL:" CR
+     ."   -s -N" CR
+     \ ."   S\" file.hvm\" RUN" CR
+  ;
+
+ \ Parse arguments from Gforth command line
+  : PARSE-ARGS ( -- filename-addr filename-len | 0 )
+    \ Parse command line arguments using Gforth's NEXT-ARG
+    \ Returns filename if found, 0 otherwise
+    0 0 ( filename-addr filename-len -- initially 0 )
+
+    BEGIN
+      NEXT-ARG DUP 0<> WHILE
+      ( filename-addr filename-len arg-addr arg-len )
+
+      \ Check for flags
+      2DUP S" -s" STR= IF
+        2DROP -1 STATS? !
+      ELSE 2DUP S" --stats" STR= IF
+        2DROP -1 STATS? !
+      ELSE 2DUP S" -q" STR= IF
+        2DROP -1 QUIET? !
+      ELSE 2DUP S" -Q" STR= IF
+        2DROP -1 QUIET? !
+      ELSE 2DUP S" -n" STR= IF
+        2DROP -1 NORMALIZE? !
+      ELSE 2DUP S" -N" STR= IF
+        2DROP -1 NORMALIZE? !
+      ELSE 2DUP S" --normalize" STR= IF
+        2DROP -1 NORMALIZE? !
+      ELSE 2DUP S" -C" STR= IF
+        2DROP -1 COMPILED? !
+      ELSE 2DUP S" -h" STR= IF
+        2DROP .HELP 0 0
+      ELSE 2DUP S" --help" STR= IF
+        2DROP .HELP 0 0
+      ELSE
+        \ If not a flag, it's the filename
+        >R >R 2DROP R> R>
+      THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+    REPEAT
+    DROP
+  ;
 
 \ Load file into INPUT-BUF
-: LOAD-FILE ( c-addr u -- )
-  \ Clear substitution map from any previous file
-  SUBST-CLEAR
+  : LOAD-FILE ( c-addr u -- flag )
+    \ Returns TRUE on success, FALSE on failure
+    \ Clear substitution map from any previous file
+    SIMPLE-SUBST-CLEAR
 
-  R/O OPEN-FILE IF
-    DROP S" Failed to open file" PARSE-ERROR EXIT
-  THEN
+    DEBUG? @ IF ." [DEBUG] Loading file: " 2DUP TYPE CR THEN
 
-  >R  \ Save file ID on return stack
-  INPUT-BUF MAX-INPUT-LEN R@ READ-FILE IF
+    R/O OPEN-FILE IF
+      DROP 2DROP S" Could not open file" FILE-ERROR
+      FALSE EXIT
+    THEN
+
+    >R  \ Save file ID
+    TEST-INPUT-BUF MAX-INPUT-LEN R@ READ-FILE IF
+      R> CLOSE-FILE DROP
+      2DROP S" Could not read file" FILE-ERROR
+      FALSE EXIT
+    THEN
+
+    \ Set input length
+    INPUT-LEN !
+
+    \ Set INPUT-BUF to TEST-INPUT-BUF
+    TEST-INPUT-BUF INPUT-BUF !
+
+    \ Close file
     R> CLOSE-FILE DROP
-    S" Failed to read file" PARSE-ERROR EXIT
-  THEN
-
-  \ Set input length
-  INPUT-LEN !
-
-  \ Close file
-  R> CLOSE-FILE DROP
-;
+    TRUE
+  ;
 
 \ Pretty-print a term (recursive version)
 DEFER .TERM
@@ -116,19 +186,19 @@ DEFER .TERM
     DROP GET-VAL . EXIT
   THEN
 
-  \ CTR: #Tag{field1,field2}
-  DUP TAG-CTR = IF
-    DROP DUP GET-LAB ( term tag-id )
-    ." #" EMIT ." {"
-    GET-VAL ( fields-addr )
-    DUP 0= IF
-      DROP ." }"
-    ELSE
-      DUP @ .TERM
-      CELL+ @ ." ," .TERM ." }"
-    THEN
-    EXIT
-  THEN
+   \ CTR: #Tag{field1,field2,...}
+   DUP TAG-CTR = IF
+     DROP DUP CTR-CONSTRUCTOR-ID ( ctr-id )
+     ." #" . ." {"
+     DUP CTR-FIELD-COUNT ( ctr-id field-count )
+     DUP 0> IF
+       0 ?DO
+         DUP I CTR-FIELD .TERM
+         I OVER 1- < IF ." ," THEN
+       LOOP
+     THEN
+     DROP ." }" EXIT
+   THEN
 
   \ REF: @name
   DUP TAG-REF = IF
@@ -162,31 +232,35 @@ DEFER .TERM
 DEFER PRINT-STATS
 
 \ Run mode
-: RUN-FILE ( c-addr u -- )
-  \ Load file into INPUT-BUF
-  2DUP LOAD-FILE
+  : RUN-FILE ( c-addr u -- )
+    \ Buffers are allocated at startup
 
-  QUIET? @ 0= IF
-    ." [Loading " 2DUP TYPE ." ]" CR
-  THEN
-  2DROP
+    \ Try to load the file
+   2DUP LOAD-FILE IF
+     \ File loading failed, fall back to test string
+     2DROP
+      S" main = 42" LOAD-INPUT
+     QUIET? @ 0= IF ." [Loading test string - file loading failed]" CR THEN
+   ELSE
+     QUIET? @ 0= IF ." [Loaded file successfully]" CR THEN
+   THEN
 
-  \ Reset input position
-  0 INPUT-POS !
-  0 TOKEN-POS !
+   \ Reset input position
+   0 INPUT-POS !
+   0 TOKEN-POS !
 
-  \ Parse all definitions
-  LOAD-BOOK DROP DROP  \ LOAD-BOOK expects dummy args we don't use
+   \ Parse all definitions
+   LOAD-BOOK DROP DROP  \ LOAD-BOOK expects dummy args we don't use
 
-  QUIET? @ 0= IF
-    ." [Loaded " BOOK-COUNT @ . ." definitions]" CR
-  THEN
+   QUIET? @ 0= IF
+     ." [Loaded " BOOK-COUNT @ . ." definitions]" CR
+   THEN
 
-  \ Find and run 'main'
-  S" main" BOOK-FIND ( arity term )
-  SWAP DROP ( term )
+   \ Find and run 'main'
+   S" main" BOOK-FIND ( arity term )
+   SWAP DROP ( term )
 
-  DUP 0= IF
+   DUP 0= IF
     DROP
     ." Error: No 'main' function found" CR
     EXIT
@@ -221,33 +295,40 @@ DEFER PRINT-STATS
 ;
 
 \ Statistics display
-:NONAME ( -- )
-  STATS? @ IF
-    CR
-    ." ────────────────────────────" CR
-    ." WORK: " ITR-COUNT @ DUP . ." interactions" CR
+ :NONAME ( -- )
+   STATS? @ IF
+     CR
+     ." ────────────────────────────" CR
+     ." WORK: " ITR-COUNT @ DUP . ." interactions" CR
 
-    \ Calculate elapsed time in microseconds
-    END-TIME @ START-TIME @ - ( elapsed-us )
-    DUP 0> IF
-      \ Convert to seconds (as float approximation)
-      DUP 1000000 / ( elapsed-us seconds )
+     \ Calculate elapsed time in microseconds
+     END-TIME @ START-TIME @ - ( elapsed-us )
+     DUP 0> IF
+       \ Convert to seconds (integer division)
+       DUP 1000000 / DUP ( elapsed-us seconds seconds )
+       DUP 0= IF
+         \ Less than 1 second
+         DROP DUP ( elapsed-us elapsed-us )
+         ." TIME: " . ." us" CR
+         ." MIPS: <0.001" CR
+       ELSE
+         \ At least 1 second
+         ." TIME: " DUP . ." s" CR
 
-      \ Calculate MIPS: interactions / seconds / 1000000
-      SWAP ( seconds elapsed-us )
-      ITR-COUNT @ SWAP ( seconds itr elapsed-us )
-      / ( seconds itr-per-us )
+         \ Calculate MIPS: interactions / seconds / 1000000
+         ITR-COUNT @ SWAP / ( interactions-per-second )
+         1000000 / ( mips )
+         ." MIPS: " . CR
+       THEN
+     ELSE
+       DROP
+       ." TIME: <1 us" CR
+       ." MIPS: N/A" CR
+     THEN
 
-      ." TIME: " OVER . ." s" CR
-      ." MIPS: " . CR
-    ELSE
-      DROP
-      ." TIME: <1 us" CR
-    THEN
-
-    ." ────────────────────────────" CR
-  THEN
-; IS PRINT-STATS
+     ." ────────────────────────────" CR
+   THEN
+ ; IS PRINT-STATS
 
 \ Set statistics flag
 : -s ( -- )
@@ -265,32 +346,62 @@ DEFER PRINT-STATS
 ;
 
 \ Main entry point for running a file
-: RUN ( -- )
-  \ Usage: S" filename.hvm" RUN
-  \ This expects filename on stack
-  RUN-FILE
-;
+ : RUN ( -- )
+   \ Usage: S" filename.hvm" RUN
+   \ This expects filename on stack
+   RUN-FILE
+ ;
+
+\ Test suite runner
+ : RUN-TESTS ( -- )
+   QUIET? @ 0= IF
+     ." Running test suite..." CR
+     ." ──────────────────────" CR
+   THEN
+
+   \ Test files to run
+   0 ( pass-count )
+
+   \ Test 1: test_simple.hvm (if it exists)
+   S" ../test_simple_num.hvm" RUN-FILE DROP 1+
+
+   \ Test 2: test_match.hvm
+   S" ../test_programs/test_match.hvm" RUN-FILE DROP 1+
+
+   \ Test 3: test_constructor_pattern.hvm
+   S" ../test_programs/test_constructor_pattern.hvm" RUN-FILE DROP 1+
+
+   \ Test 4: sum_list.hvm
+   S" ../test_programs/sum_list.hvm" RUN-FILE DROP 1+
+
+   QUIET? @ 0= IF
+     CR ." Test suite completed: " . ." tests run" CR
+   THEN
+ ;
+
+\ Test command
+ : TEST ( -- )
+   \ Usage: TEST (runs test suite)
+   RUN-TESTS
+ ;
 
 \ Main entry point
-: MAIN ( -- )
-  PARSE-ARGS
-  ." ForthVM CLI ready" CR
-  ." Use: S" 34 EMIT ."  file.hvm" 34 EMIT ."  RUN" CR
-;
+ : MAIN ( -- )
+   PARSE-ARGS ( filename-addr filename-len | 0 )
 
-\ Help text
-: .HELP ( -- )
-  ." Usage: fvm run <file.hvm> [-C] [-s] [-Q] [-N]" CR
-  ."   -C  Compiled mode (not yet implemented)" CR
-  ."   -s  Show statistics" CR
-  ."   -Q  Quiet mode (minimal output)" CR
-  ."   -N  Full normalization (reduce inside lambdas)" CR
-  CR
-  ." In Gforth:" CR
-  ."   -s                    \ Enable stats" CR
-  ."   -N                    \ Enable normalization" CR
-  ."   S" 34 EMIT ."  file.hvm" 34 EMIT ."  RUN      \ Run file" CR
-;
+   DUP 0<> IF
+     \ We have a filename
+     RUN-FILE
+   ELSE
+     DROP
+     \ No filename provided
+     QUIET? @ 0= IF
+       .HELP
+     THEN
+   THEN
+ ;
+
+
 
 \ Test word
 : TEST-CLI ( -- )

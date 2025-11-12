@@ -30,15 +30,14 @@ VARIABLE NAME-LEN  \ Length of current function name
   \ Save term and arity on R-stack
   >R >R ( name-addr name-len | R: term arity )
 
-  \ Allocate heap space for function name and copy it
-  \ This allows multiple functions without NAME-BUF collision
-  DUP CELL+ CELL 1- / ( name-addr name-len cells-needed | R: term arity )
-  ALLOC ( name-addr name-len name-copy-addr | R: term arity )
+   \ Allocate heap space for function name and copy it
+   \ This allows multiple functions without NAME-BUF collision
+   DUP CELL+ CELL 1- / ( name-addr name-len cells-needed | R: term arity )
+   ALLOC ( name-addr name-len name-copy-addr | R: term arity )
 
-  \ Copy the name to allocated space
-  \ CMOVE expects: ( src dest len -- )
-  \ Stack: ( name-addr name-len name-copy-addr )
-  2 PICK OVER 3 PICK CMOVE ( name-addr name-len name-copy-addr | R: term arity )
+    \ Copy the name to allocated space
+    \ Stack: ( name-addr name-len name-copy-addr )
+    DUP >R SWAP CMOVE R> ( name-copy-addr | R: term arity )
 
   \ Rearrange to ( name-copy-addr name-len )
   ROT DROP SWAP ( name-copy-addr name-len | R: term arity )
@@ -103,6 +102,9 @@ VARIABLE NAME-LEN  \ Length of current function name
 : PARSE-DEF ( -- flag )
   \ Returns: TRUE if definition parsed, FALSE if EOF or error
 
+  \ Skip whitespace and comments
+  SKIP-WHITESPACE
+
   \ Get first token (should be identifier or EOF)
   NEXT-TOKEN ( type addr len )
 
@@ -118,12 +120,10 @@ VARIABLE NAME-LEN  \ Length of current function name
     FALSE EXIT
   THEN
 
-  \ Save function name - copy to NAME-BUF since TOKEN-BUF will be reused
-  ROT DROP ( addr len ) \ Drop type
-  DUP NAME-LEN ! ( addr len ) \ Save length
-  \ CMOVE expects ( src dest len )
-  OVER NAME-BUF ROT CMOVE ( addr )
-  DROP ( )
+   \ Save function name - copy to NAME-BUF since TOKEN-BUF will be reused
+   ROT DROP ( addr len ) \ Drop type
+   DUP NAME-LEN ! ( addr len ) \ Save length
+   NAME-BUF SWAP CMOVE ( )
 
   \ Expect '=' token
   NEXT-TOKEN ( type addr len )

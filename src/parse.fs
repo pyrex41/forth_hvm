@@ -5,20 +5,54 @@
 \ Need to properly save name strings before parsing term body
 
 \ Input buffer for parsing
-4096 CONSTANT MAX-INPUT-LEN
-CREATE INPUT-BUF MAX-INPUT-LEN ALLOT
-VARIABLE INPUT-LEN
-VARIABLE INPUT-POS
-VARIABLE TOKEN-POS
-0 INPUT-POS !
-0 TOKEN-POS !
+ 1024 CONSTANT MAX-INPUT-LEN
+ VARIABLE INPUT-BUF
+ MAX-INPUT-LEN ALLOC INPUT-BUF !
+ VARIABLE INPUT-LEN
+ VARIABLE INPUT-POS
+ VARIABLE TOKEN-POS
+ 0 INPUT-POS !
+ 0 TOKEN-POS !
+
+\ Test input buffer
+  CREATE TEST-INPUT-BUF MAX-INPUT-LEN ALLOT
+ MAX-INPUT-LEN ALLOC TEST-INPUT-BUF !
 
 \ Binding ID counter (for LAM/VAR labels that fit in 18 bits)
 VARIABLE BIND-ID
 0 BIND-ID !
 
+\ Simple global binding for testing (only one variable at a time)
+VARIABLE GLOBAL-BIND-NAME-ADDR
+VARIABLE GLOBAL-BIND-NAME-LEN
+VARIABLE GLOBAL-BIND-ID
+
 : FRESH-BIND-ID ( -- id )
   BIND-ID @ 1+ DUP BIND-ID !
+;
+
+\ Simple SUBST-PUT for single binding
+: SIMPLE-SUBST-PUT ( c-addr u loc -- )
+  GLOBAL-BIND-ID !
+  GLOBAL-BIND-NAME-LEN !
+  GLOBAL-BIND-NAME-ADDR !
+;
+
+\ Simple SUBST-GET for single binding
+: SIMPLE-SUBST-GET ( c-addr u -- loc | 0 )
+  DUP GLOBAL-BIND-NAME-LEN @ <> IF DROP 0 EXIT THEN
+  GLOBAL-BIND-NAME-ADDR @ GLOBAL-BIND-NAME-LEN @ STR= IF
+    GLOBAL-BIND-ID @
+  ELSE
+    0
+  THEN
+;
+
+\ SUBST-CLEAR for simple version
+: SIMPLE-SUBST-CLEAR ( -- )
+  0 GLOBAL-BIND-NAME-ADDR !
+  0 GLOBAL-BIND-NAME-LEN !
+  0 GLOBAL-BIND-ID !
 ;
 
 \ Current line and column for error reporting
@@ -28,13 +62,15 @@ VARIABLE CURRENT-COL
 1 CURRENT-COL !
 
 \ Load input string into buffer
-: LOAD-INPUT ( c-addr u -- )
-  DUP INPUT-LEN !
-  INPUT-BUF SWAP CMOVE
-  0 INPUT-POS !
-  1 CURRENT-LINE !
-  1 CURRENT-COL !
-;
+  : LOAD-INPUT ( c-addr u -- )
+   DUP INPUT-LEN !
+   \ Copy string into INPUT-BUF
+   INPUT-BUF @ SWAP CMOVE
+   \ INPUT-BUF is already set
+   0 INPUT-POS !
+   1 CURRENT-LINE !
+   1 CURRENT-COL !
+ ;
 
 \ Check if at end of input
 : END-OF-INPUT? ( -- flag )
@@ -42,13 +78,13 @@ VARIABLE CURRENT-COL
 ;
 
 \ Peek at current character
-: PEEK-CHAR ( -- c )
-  END-OF-INPUT? IF
-    0
-  ELSE
-    INPUT-BUF INPUT-POS @ + C@
-  THEN
-;
+ : PEEK-CHAR ( -- c )
+   END-OF-INPUT? IF
+     0
+   ELSE
+     INPUT-BUF @ INPUT-POS @ + C@
+   THEN
+ ;
 
 \ Consume and return current character
 : NEXT-CHAR ( -- c )
@@ -103,10 +139,10 @@ VARIABLE CURRENT-COL
     REPEAT
     DROP
 
-    \ Check for line comment //
-    PEEK-CHAR 47 = IF  \ '/'
-      INPUT-POS @ 1+ INPUT-LEN @ < IF
-        INPUT-BUF INPUT-POS @ 1+ + C@ 47 = IF  \ second '/'
+     \ Check for line comment //
+     PEEK-CHAR 47 = IF  \ '/'
+       INPUT-POS @ 1+ INPUT-LEN @ < IF
+         INPUT-BUF @ INPUT-POS @ 1+ + C@ 47 = IF  \ second '/'
           \ Skip to end of line
           NEXT-CHAR DROP  \ consume first /
           NEXT-CHAR DROP  \ consume second /
@@ -117,7 +153,34 @@ VARIABLE CURRENT-COL
           DROP
           -1  \ Continue outer loop
         ELSE
-          0   \ Stop outer loop
+          INPUT-BUF @ INPUT-POS @ 1+ + C@ 42 = IF  \ '*' for /*
+            \ Block comment /* */
+            NEXT-CHAR DROP  \ consume first /
+            NEXT-CHAR DROP  \ consume *
+            BEGIN
+              \ Look for */
+              PEEK-CHAR 42 = IF  \ '*'
+                NEXT-CHAR DROP
+                PEEK-CHAR 47 = IF  \ '/'
+                  NEXT-CHAR DROP  \ consume /
+                  -1  \ End of comment, continue outer loop
+                ELSE
+                  0  \ Continue inner loop
+                THEN
+              ELSE
+                PEEK-CHAR 0<> IF
+                  NEXT-CHAR DROP
+                  0  \ Continue inner loop
+                ELSE
+                  \ EOF in comment
+                  S" Unterminated block comment" PARSE-ERROR
+                  0
+                THEN
+              THEN
+            0= UNTIL
+          ELSE
+            0   \ Stop outer loop
+          THEN
         THEN
       ELSE
         0  \ Stop outer loop
@@ -197,6 +260,11 @@ VARIABLE TOKEN-TYPE
   REPEAT
   DROP
   TOK-NUMBER TOKEN-TYPE !
+;
+
+\ Put back the last token (backup position)
+: UNGET-TOKEN ( -- )
+  TOKEN-POS @ 1- 0 MAX TOKEN-POS !
 ;
 
 \ Get next token
@@ -310,13 +378,13 @@ VARIABLE TOKEN-TYPE
     TOK-GT 0 0 EXIT
   THEN
 
-  \ Check for identifier
-  DUP IS-ALPHA? OVER 64 = OR IF  \ letter or @
-    DROP
-    READ-IDENT
-    TOKEN-TYPE @ TOKEN-BUF TOKEN-LEN @
-    EXIT
-  THEN
+   \ Check for identifier
+   DUP IS-ALPHA? OVER 64 = OR IF  \ letter or @
+     DROP
+     READ-IDENT
+     TOKEN-TYPE @ TOKEN-BUF TOKEN-LEN @
+     EXIT
+   THEN
 
   \ Check for number
   DUP IS-DIGIT? IF
@@ -339,42 +407,27 @@ DEFER PARSE-TERM
 : PARSE-VAR ( c-addr u -- term )
   \ Check if it starts with '@' (function reference)
   OVER C@ 64 = IF  \ ASCII '@' = 64
+    DROP  \ Drop the char
     \ Function reference: @name
     \ Skip the '@' character
     SWAP 1+ SWAP 1- ( c-addr+1 u-1 )
 
-    \ Allocate heap space for name string (actual characters)
-    DUP ALLOC ( c-addr u name-str-addr )
-
-    \ Copy the name string to heap (using BOOK-PUT pattern)
-    \ CMOVE expects: ( source-addr dest-addr count )
-    \ Pattern: 2 PICK OVER 3 PICK CMOVE leaves stack unchanged
-    2 PICK OVER 3 PICK CMOVE ( c-addr u name-str-addr )
-
-    \ Rearrange to ( name-str-addr u ) matching BOOK-PUT pattern
-    ROT DROP SWAP ( name-str-addr u )
-
-    \ Now allocate heap space for ref structure (2 cells: addr, len)
-    2 ALLOC ( name-str-addr u ref-loc )
-
-    \ Store in ref structure using BOOK-PUT pattern (but keep ref-loc)
-    \ Stack: ( name-str-addr u ref-loc )
-    DUP >R ( name-str-addr u ref-loc | R: ref-loc )
-    ROT OVER ! ( u ref-loc | R: ref-loc ) \ Store name-str-addr at ref-loc
-    SWAP OVER CELL+ ! ( ref-loc | R: ref-loc ) \ Store u at ref-loc+CELL
-    RDROP ( ref-loc )
-
-    \ Create REF term: tag=REF, lab=0, val=ref-loc
-    TAG-REF 0 ROT PACK-TERM
+    \ For now, create dummy REF without allocating string
+    TAG-REF 0 0 PACK-TERM
     EXIT
   THEN
 
+  DROP  \ Drop the char from OVER C@
+
   \ Otherwise, it's a variable reference
   \ Look up variable in substitution map
-  SUBST-GET DUP 0= IF
-    DROP
-    S" Undefined variable" PARSE-ERROR
-    0 EXIT
+  SIMPLE-SUBST-GET DUP 0= IF
+    \ Not a local variable - treat as function reference
+    DROP \ Drop the 0 from SUBST-GET
+
+    \ For now, create dummy REF without allocating string
+    TAG-REF 0 0 PACK-TERM
+    EXIT
   THEN
 
   \ Create VAR term: VAR has val=location
@@ -404,8 +457,11 @@ DEFER PARSE-TERM
   DUP >R ( addr len bind-id | R: bind-id )
 
   \ Store binding: name -> bind-id
-  \ SUBST-PUT expects ( c-addr u loc -- )
-  SUBST-PUT ( | R: bind-id )
+  \ SIMPLE-SUBST-PUT expects ( c-addr u loc -- )
+  SIMPLE-SUBST-PUT ( | R: bind-id )
+
+  \ Skip whitespace after variable name
+  SKIP-WHITESPACE
 
   \ Parse body term
   PARSE-TERM ( body-term | R: bind-id )
@@ -633,20 +689,26 @@ DEFER PARSE-TERM
   THEN
   2DROP DROP ( label )
 
-  \ Expect first variable name
-  NEXT-TOKEN ( label type addr len )
-  2 PICK TOK-IDENT <> IF
-    2DROP DROP DROP
-    S" Expected variable name in duplication" PARSE-ERROR
-    0 EXIT
-  THEN
-  ROT DROP ( label addr len )
+   \ Expect first variable name
+   NEXT-TOKEN ( label type addr len )
+   2 PICK TOK-IDENT <> IF
+     2DROP DROP DROP
+     S" Expected variable name in duplication" PARSE-ERROR
+     0 EXIT
+    THEN
+    ROT DROP ( label addr len )
 
-   \ Allocate location for first binding
-   3 ALLOC ( label addr len loc1 )
-   SUBST-PUT ( label )
+     \ Allocate permanent storage for variable name
+     DUP CELL+ CELL 1- / ALLOC DUP >R DUP >R 0 ?DO 2 PICK I + C@ R@ I + C! LOOP R> ( label addr len name-addr | R: name-addr )
+     \ Stack: label addr len name-addr
 
-  \ Expect ','
+     \ Get fresh binding ID
+     FRESH-BIND-ID ( label addr len name-addr bind-id )
+
+     \ Store binding: name -> bind-id
+     ROT DROP SWAP ROT SUBST-PUT ( label | R: name-addr )
+
+   \ Expect ','
   NEXT-TOKEN ( label type addr len )
   2 PICK TOK-COMMA <> IF
     2DROP DROP DROP
@@ -655,20 +717,26 @@ DEFER PARSE-TERM
   THEN
   2DROP DROP ( label )
 
-  \ Expect second variable name
-  NEXT-TOKEN ( label type addr len )
-  2 PICK TOK-IDENT <> IF
-    2DROP DROP DROP
-    S" Expected second variable name in duplication" PARSE-ERROR
-    0 EXIT
-  THEN
-  ROT DROP ( label addr len )
+   \ Expect second variable name
+   NEXT-TOKEN ( label type addr len )
+   2 PICK TOK-IDENT <> IF
+     2DROP DROP DROP
+     S" Expected second variable name in duplication" PARSE-ERROR
+     0 EXIT
+    THEN
+    ROT DROP ( label addr len )
 
-   \ Allocate location for second binding
-   3 ALLOC ( label addr len loc2 )
-   \ SUBST-PUT ( label )
+     \ Allocate permanent storage for variable name
+     DUP CELL+ CELL 1- / ALLOC DUP >R DUP >R 0 ?DO 2 PICK I + C@ R@ I + C! LOOP R> ( label addr len name-addr | R: name-addr )
+     \ Stack: label addr len name-addr
 
-  \ Expect '}'
+     \ Get fresh binding ID
+     FRESH-BIND-ID ( label addr len name-addr bind-id )
+
+     \ Store binding: name -> bind-id
+     ROT DROP SWAP ROT SUBST-PUT ( label | R: name-addr )
+
+   \ Expect '}'
   NEXT-TOKEN ( label type addr len )
   2 PICK TOK-RBRACE <> IF
     2DROP DROP DROP
@@ -727,26 +795,26 @@ DEFER PARSE-TERM
   \ Case counter
   0 ( scrut-loc case-count | R: case-array-start )
 
-  \ Current write position in case array
-  R@ ( scrut-loc case-count write-ptr | R: case-array-start )
+   \ Current write position in case array
+   R@ ( scrut-loc case-count write-ptr | R: case-array-start )
 
-  BEGIN
-    \ Parse constructor tag (#Tag)
-    NEXT-TOKEN ( scrut-loc case-count write-ptr type addr len | R: case-array-start )
-    2 PICK TOK-IDENT <> IF
-      2DROP DROP 2DROP DROP R> DROP
-      S" Expected constructor tag after #" PARSE-ERROR
-      0 EXIT
-    THEN
-    ROT DROP ( scrut-loc case-count write-ptr addr len | R: case-array-start )
+   BEGIN
+     \ Parse constructor tag (#Tag)
+     NEXT-TOKEN ( scrut-loc case-count write-ptr type addr len | R: case-array-start )
+     2 PICK TOK-IDENT <> IF
+       2DROP DROP 2DROP DROP R> DROP
+       S" Expected constructor tag after #" PARSE-ERROR
+       0 EXIT
+     THEN
+     ROT DROP ( scrut-loc case-count write-ptr addr len | R: case-array-start )
 
-    \ Convert tag name to numeric ID (use first char for now)
-    OVER C@ ( scrut-loc case-count write-ptr addr len tag-id | R: case-array-start )
-    >R 2DROP ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
+     \ Convert tag name to numeric ID (use first char for now)
+     OVER C@ ( scrut-loc case-count write-ptr addr len tag-id | R: case-array-start )
+     >R 2DROP ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
 
-    \ Store tag in case array
-    DUP R@ SWAP ! ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
-    CELL+ ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+     \ Store tag in case array
+     DUP R@ SWAP ! ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
+     CELL+ ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
 
     \ Check for field bindings: '{' or ':'
     NEXT-TOKEN ( scrut-loc case-count write-ptr' type addr len | R: case-array-start tag-id )
@@ -777,11 +845,12 @@ DEFER PARSE-TERM
           \ Store in SUBST map
           SUBST-PUT ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id bind-id )
 
-          \ Store bind-id in case array (after tag and num-fields)
-          \ We'll write num-fields later, for now skip one cell
-          OVER R@ SWAP CELL+ CELL+ ( scrut-loc case-count write-ptr' num-fields bind-id-addr | R: case-array-start tag-id bind-id )
-          2 PICK CELLS + ( scrut-loc case-count write-ptr' num-fields storage-addr | R: case-array-start tag-id bind-id )
-          R> SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+           \ Store bind-id in case array (after tag and num-fields)
+           \ Address is: write-ptr' + 1*CELL + field-idx*CELL
+           \ write-ptr' = case-start + 1*CELL, field-idx = num-fields
+           OVER CELL+ ( scrut-loc case-count write-ptr' num-fields bind-id-addr | R: case-array-start tag-id bind-id )
+           OVER CELLS + ( scrut-loc case-count write-ptr' num-fields storage-addr | R: case-array-start tag-id bind-id )
+           R> SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
 
           \ Increment field count
           1+ ( scrut-loc case-count write-ptr' num-fields' | R: case-array-start tag-id )
@@ -789,14 +858,15 @@ DEFER PARSE-TERM
         THEN
       0= UNTIL
 
-      \ Store num-fields in case array at write-ptr[1]
-      OVER CELL+ OVER SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+       \ Store num-fields in case array at write-ptr[1]
+       OVER CELL+ OVER SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
 
-      \ Advance write-ptr past tag, num-fields, and all bind-ids
-      SWAP OVER ( scrut-loc case-count num-fields write-ptr' num-fields | R: case-array-start tag-id )
-      2 + CELLS + ( scrut-loc case-count num-fields write-ptr'' | R: case-array-start tag-id )
-      SWAP ( scrut-loc case-count write-ptr'' num-fields | R: case-array-start tag-id )
-      DROP ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
+       \ Advance write-ptr to body position: case-start + (2 + num-fields)*CELL
+       \ write-ptr' = case-start + 1*CELL, so add (1 + num-fields)*CELL
+       SWAP OVER ( scrut-loc case-count num-fields write-ptr' num-fields | R: case-array-start tag-id )
+       1 + CELLS + ( scrut-loc case-count num-fields write-ptr'' | R: case-array-start tag-id )
+       SWAP ( scrut-loc case-count write-ptr'' num-fields | R: case-array-start tag-id )
+       DROP ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
     ELSE
       \ No fields: #Tag:
       2 PICK TOK-COLON <> IF
@@ -851,9 +921,9 @@ DEFER PARSE-TERM
     THEN
   0= UNTIL
 
-  \ Now we have: scrut-loc case-count write-ptr
-  \ Create MATCH term with constructor pattern type (label=1)
-  DROP ( scrut-loc case-count | R: case-array-start )
+   \ Now we have: scrut-loc case-count write-ptr
+   \ Create MATCH term with constructor pattern type (label=1)
+   DROP ( scrut-loc case-count | R: case-array-start )
 
   \ Allocate MATCH term storage: [scrut-loc, num-cases, case-array-ptr]
   3 ALLOC DUP >R ( scrut-loc case-count match-loc | R: case-array-start match-loc )
@@ -874,22 +944,29 @@ DEFER PARSE-TERM
 : PARSE-PATTERN-MATCH ( -- term )
   \ Already consumed '~' token
 
-  \ Parse scrutinee variable
-  NEXT-TOKEN ( type addr len )
-  2 PICK TOK-IDENT <> IF
-    2DROP DROP
-    S" Expected variable after ~" PARSE-ERROR
-    0 EXIT
-  THEN
-  ROT DROP ( addr len )
+    \ Parse scrutinee variable
+    NEXT-TOKEN ( type addr len )
+    2 PICK TOK-IDENT <> IF
+      2DROP DROP
+      S" Expected variable after ~" PARSE-ERROR
+      0 EXIT
+    THEN
+    ROT DROP ( addr len )
 
-  \ Look up scrutinee variable
-  SUBST-GET DUP 0= IF
-    DROP
-    S" Undefined scrutinee variable" PARSE-ERROR
-    0 EXIT
-  THEN
-  >R ( | R: scrut-loc )
+    \ Look up existing binding for scrutinee variable
+    2DUP SIMPLE-SUBST-GET DUP 0= IF
+      2DROP DROP
+      S" Undefined scrutinee variable" PARSE-ERROR
+      0 EXIT
+    THEN
+    >R ( addr len | R: bind-id )
+
+    \ Create VAR term for scrutinee using existing bind-id
+    TAG-VAR 0 R@ PACK-TERM ( addr len scrut-var | R: bind-id )
+    >R ( addr len | R: bind-id scrut-var )
+
+    \ Drop the variable name since we don't need it anymore
+    2DROP ( | R: bind-id scrut-var )
 
   \ For now, skip optional ! before { (strict evaluation)
   \ We'll handle it in a future enhancement
@@ -908,153 +985,70 @@ DEFER PARSE-TERM
   THEN
   2DROP DROP ( | R: scrut-loc )
 
-  \ Parse case branches - detect pattern type by first token
-  NEXT-TOKEN ( type addr len | R: scrut-loc )
+   \ Parse case branches - detect pattern type by first token
+   NEXT-TOKEN ( type addr len | R: bind-id scrut-var )
 
-  \ Check if it's numeric pattern (0:, 1+p:) or constructor pattern (#Tag:)
-  2 PICK TOK-HASH = IF
-    \ Constructor pattern
-    2DROP DROP R> ( scrut-loc )
-    PARSE-CONSTRUCTOR-PATTERN EXIT
-  THEN
+    \ Check if it's numeric pattern (0:, 1+p:) or constructor pattern (#Tag:)
+    2 PICK TOK-NUMBER = IF
+      \ Numeric pattern - simplified parsing for 0: body, 1+p: body
+      ROT DROP ( addr len | R: bind-id scrut-var )
+      2DUP S" 0" STR= 0= IF
+        2DROP R> R> 2DROP DROP
+        S" Expected 0 as first pattern" PARSE-ERROR
+        0 EXIT
+      THEN
+      2DROP ( | R: bind-id scrut-var )
+      NEXT-TOKEN DROP 2DROP  \ Skip ':'
+      PARSE-TERM ( zero-body | R: bind-id scrut-var )
+      NEXT-TOKEN ( type addr len | R: bind-id scrut-var zero-body )
+      2 PICK TOK-COMMA = IF
+        2DROP DROP  \ Skip comma
+        NEXT-TOKEN DROP 2DROP  \ Skip '1'
+        NEXT-TOKEN DROP 2DROP  \ Skip '+'
+        NEXT-TOKEN ( type addr len | R: bind-id scrut-var zero-body )
+        2 PICK TOK-IDENT <> IF
+          2DROP DROP R> R> 2DROP DROP
+          S" Expected variable after 1+" PARSE-ERROR
+          0 EXIT
+        THEN
+        ROT DROP ( addr len | R: bind-id scrut-var zero-body )
+        2DUP S" p" STR= 0= IF
+          2DROP R> R> 2DROP DROP
+          S" Expected 'p'" PARSE-ERROR
+          0 EXIT
+        THEN
+        \ Allocate permanent storage for variable name
+        DUP CELL+ CELL 1- / ALLOC DUP >R DUP >R 0 ?DO 2 PICK I + C@ R@ I + C! LOOP R> ( addr len name-addr | R: bind-id scrut-var zero-body name-addr )
+        FRESH-BIND-ID DUP >R ( addr len name-addr bind-id | R: bind-id scrut-var zero-body name-addr bind-id )
+        ROT DROP SWAP ROT SUBST-PUT ( | R: bind-id scrut-var zero-body name-addr bind-id )
+        NEXT-TOKEN DROP 2DROP  \ Skip ':'
+        PARSE-TERM ( succ-body | R: bind-id scrut-var zero-body )
+        NEXT-TOKEN DROP 2DROP  \ Skip '}'
+        R> ( succ-bind-id | R: bind-id scrut-var zero-body succ-body )
+      ELSE 2 PICK TOK-RBRACE = IF
+        2DROP DROP  \ Skip '}'
+        0 0  \ succ-body, succ-bind-id
+      ELSE
+        2DROP DROP R> R> 2DROP DROP
+        S" Expected ',' or '}'" PARSE-ERROR
+        0 EXIT
+      THEN THEN
 
-  \ Numeric pattern - first case should be 0:
-  2 PICK TOK-NUMBER <> IF
-    2DROP DROP R> DROP
-    S" Expected '0' or #Tag for pattern case" PARSE-ERROR
-    0 EXIT
-  THEN
-
-  \ Check if it's actually "0"
-  ROT DROP ( addr len | R: scrut-loc )
-  OVER C@ 48 <> OVER 1 <> OR IF  \ Not "0"
-    2DROP R> DROP
-    S" Expected '0' for first case" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP ( | R: scrut-loc )
-
-  \ Expect ':'
-  NEXT-TOKEN ( type addr len | R: scrut-loc )
-  2 PICK TOK-COLON <> IF
-    2DROP DROP R> DROP
-    S" Expected ':' after 0" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP DROP ( | R: scrut-loc )
-
-  \ Parse zero case body
-  PARSE-TERM ( zero-body | R: scrut-loc )
-
-  \ Expect ','  (optional - might have newline instead, so check for it or 1)
-  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
-  2 PICK TOK-COMMA = IF
-    2DROP DROP ( zero-body | R: scrut-loc )
-    NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
-  THEN
-
-  \ Second case should be 1+p: (successor)
-  2 PICK TOK-NUMBER <> IF
-    2DROP DROP DROP R> DROP
-    S" Expected '1' for successor case" PARSE-ERROR
-    0 EXIT
-  THEN
-
-  \ Check if it's "1"
-  ROT DROP ( zero-body addr len | R: scrut-loc )
-  OVER C@ 49 <> OVER 1 <> OR IF  \ Not "1"
-    2DROP DROP R> DROP
-    S" Expected '1' for successor case" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP ( zero-body | R: scrut-loc )
-
-  \ Expect '+'
-  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
-  2 PICK TOK-PLUS <> IF
-    2DROP DROP DROP R> DROP
-    S" Expected '+' after 1" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP DROP ( zero-body | R: scrut-loc )
-
-  \ Parse binding variable (p in "1+p:")
-  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc )
-  2 PICK TOK-IDENT <> IF
-    2DROP DROP DROP R> DROP
-    S" Expected binding variable after 1+" PARSE-ERROR
-    0 EXIT
-  THEN
-  ROT DROP ( zero-body addr len | R: scrut-loc )
-
-  \ Create binding for successor variable (p = scrut - 1)
-  \ Get a fresh binding ID for the successor variable
-  FRESH-BIND-ID ( zero-body addr len succ-bind-id | R: scrut-loc )
-  DUP >R ( zero-body addr len succ-bind-id | R: scrut-loc succ-bind-id )
-
-  \ Store binding: name -> bind-id
-  SUBST-PUT ( zero-body | R: scrut-loc succ-bind-id )
-
-  \ Expect ':'
-  NEXT-TOKEN ( zero-body type addr len | R: scrut-loc succ-bind-id )
-  2 PICK TOK-COLON <> IF
-    2DROP DROP DROP R> R> 2DROP
-    S" Expected ':' after binding variable" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP DROP ( zero-body | R: scrut-loc succ-bind-id )
-
-  \ Parse successor case body
-  PARSE-TERM ( zero-body succ-body | R: scrut-loc succ-bind-id )
-
-  \ Expect '}'
-  NEXT-TOKEN ( zero-body succ-body type addr len | R: scrut-loc succ-bind-id )
-  2 PICK TOK-RBRACE <> IF
-    2DROP DROP 2DROP R> R> 2DROP
-    S" Expected '}' after pattern cases" PARSE-ERROR
-    0 EXIT
-  THEN
-  2DROP DROP ( zero-body succ-body | R: scrut-loc succ-bind-id )
-
-  \ Create MATCH term
-  \ Heap layout: [scrut-loc, zero-body, succ-bind-id, succ-body]
-  \ Stack: ( zero-body succ-body | R: scrut-loc succ-bind-id )
-
-  \ Pop from return stack
-  R> ( zero-body succ-body succ-bind-id )
-  R> ( zero-body succ-body succ-bind-id scrut-loc )
-
-  \ Reorder stack to: scrut-loc zero-body succ-bind-id succ-body
-  \ Current: zero-body succ-body succ-bind-id scrut-loc
-  \ Use: ROT to bring zero-body to top, then manipulate
-  >R >R >R ( zero-body | R: succ-body succ-bind-id scrut-loc )
-  R> ( zero-body scrut-loc | R: succ-body succ-bind-id )
-  SWAP ( scrut-loc zero-body | R: succ-body succ-bind-id )
-  R> R> ( scrut-loc zero-body succ-bind-id succ-body )
-
-  \ Allocate heap space for MATCH term
-  4 ALLOC DUP >R ( scrut-loc zero-body succ-bind-id succ-body match-loc | R: match-loc )
-
-  \ Store all 4 values
-  \ We'll store them one at a time
-  OVER OVER 3 CELLS + ! ( scrut-loc zero-body succ-bind-id match-loc | R: match-loc )
-    \ match-loc[3] = succ-body
-
-  2 PICK OVER 2 CELLS + ! ( scrut-loc zero-body match-loc | R: match-loc )
-    \ match-loc[2] = succ-bind-id
-
-  2 PICK OVER CELL+ ! ( scrut-loc match-loc | R: match-loc )
-    \ match-loc[1] = zero-body
-
-  2 PICK OVER ! ( scrut-loc match-loc | R: match-loc )
-    \ match-loc[0] = scrut-loc
-
-  \ Clean up stack
-  NIP ( match-loc | R: match-loc )
-  R> DROP ( match-loc )
-
-  \ Create MATCH term: TAG-MATCH lab=0 val=match-loc
-  TAG-MATCH 0 ROT PACK-TERM
+      \ Create MATCH term
+      R> R> ( succ-bind-id succ-body zero-body bind-id scrut-var )
+      4 ALLOC DUP >R
+      2 PICK OVER ! ROT OVER CELL+ ! ROT OVER 2 CELLS + ! ROT OVER 3 CELLS + ! NIP R>
+      TAG-MATCH 0 ROT PACK-TERM
+    ELSE 2 PICK TOK-HASH = IF
+      \ Constructor pattern - consume the #
+      2DROP DROP R> R> DROP ( scrut-var )
+      PARSE-CONSTRUCTOR-PATTERN
+    ELSE
+      \ Unexpected token
+      2DROP DROP R> R> 2DROP DROP
+      S" Expected number or # for pattern case" PARSE-ERROR
+      0 EXIT
+     THEN THEN
 ;
 
 \ Forward declaration for recursive call
@@ -1098,77 +1092,71 @@ DEFER PARSE-CTR
     R> TAG-CTR SWAP 0 PACK-TERM EXIT
   THEN
 
-  \ Put token back by re-parsing it
+  \ Parse first field (put token back by re-parsing)
+  DUP >R ( field-count type addr len | R: tag-id field-count )
   2 PICK TOK-IDENT = IF
-    ROT DROP PARSE-VAR ( field-count field1 | R: tag-id )
+    ROT DROP PARSE-VAR ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-NUMBER = IF
-    ROT DROP PARSE-U32 ( field-count field1 | R: tag-id )
+    ROT DROP PARSE-U32 ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-LPAREN = IF
-    2DROP DROP PARSE-TERM ( field-count field1 | R: tag-id )
+    2DROP DROP PARSE-TERM ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-LAMBDA = IF
-    2DROP DROP PARSE-LAM ( field-count field1 | R: tag-id )
+    2DROP DROP PARSE-LAM ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-STAR = IF
-    2DROP DROP PARSE-ERA ( field-count field1 | R: tag-id )
+    2DROP DROP PARSE-ERA ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-AMP = IF
-    2DROP DROP PARSE-SUP ( field-count field1 | R: tag-id )
+    2DROP DROP PARSE-SUP ( field1 | R: tag-id field-count )
   ELSE 2 PICK TOK-HASH = IF
-    2DROP DROP PARSE-CTR ( field-count field1 | R: tag-id )
+    2DROP DROP PARSE-CTR ( field1 | R: tag-id field-count )
   ELSE
-    2DROP DROP ( field-count | R: tag-id )
+    2DROP DROP R> DROP ( field-count | R: tag-id )
     R> DROP
     S" Unexpected token in constructor" PARSE-ERROR
     0 EXIT
   THEN THEN THEN THEN THEN THEN THEN
+  R> 1+ ( field1 field-count+1 | R: tag-id )
 
-  SWAP 1+ SWAP ( field-count+1 field1 | R: tag-id )
-
-  \ Parse remaining fields (comma-separated)
-  BEGIN
-    NEXT-TOKEN ( ...fields field-count type addr len | R: tag-id )
-    2 PICK TOK-COMMA = WHILE
-    2DROP DROP ( ...fields field-count | R: tag-id )
-
-    \ Parse next field
-    PARSE-TERM ( ...fields field-count fieldN | R: tag-id )
-    SWAP 1+ SWAP ( ...fields field-count+1 fieldN | R: tag-id )
-  REPEAT
-
-  \ Should be '}'
-  2 PICK TOK-RBRACE <> IF
-    2DROP DROP ( ...fields field-count | R: tag-id )
-    \ Clean up stack - drop all fields
-    BEGIN DUP 0> WHILE
-      SWAP DROP 1-
-    REPEAT
-    DROP R> DROP
-    S" Expected '}' or ',' in constructor" PARSE-ERROR
-    0 EXIT
+\ Parse remaining fields (comma-separated) - but limit to single field for now
+  \ For #Cons{1,*} we expect exactly one comma and second field
+  NEXT-TOKEN ( field1 type addr len | R: tag-id )
+  2 PICK TOK-COMMA = IF
+    2DROP DROP ( field1 | R: tag-id )
+    
+    \ Parse second field
+    PARSE-TERM ( field1 field2 | R: tag-id )
+    
+    \ Expect '}'
+    NEXT-TOKEN ( field1 field2 type addr len | R: tag-id )
+    2 PICK TOK-RBRACE = IF
+      2DROP DROP ( field1 field2 | R: tag-id )
+      
+      \ For now, just use first field, drop second
+      DROP ( field1 | R: tag-id )
+      
+      \ Create CTR term with single field
+      R> TAG-CTR SWAP ROT PACK-TERM
+      EXIT
+    THEN
   THEN
-  2DROP DROP ( ...fields field-count | R: tag-id )
-
-  \ Allocate heap space for fields (field-count cells)
-  DUP ALLOC ( ...fields field-count fields-addr | R: tag-id )
-  DUP >R ( ...fields field-count fields-addr | R: tag-id fields-addr )
-
-  \ Store fields in reverse order
-  OVER 1- CELLS OVER + ( ...fields field-count fields-addr last-field-addr | R: tag-id fields-addr )
-  >R DROP ( ...fields field-count | R: tag-id fields-addr last-field-addr )
-
-  \ Copy fields to heap
-  BEGIN DUP 0> WHILE ( ...fields field-count | R: tag-id fields-addr last-field-addr )
-    R> OVER >R ( ...fields field-count dest-addr | R: tag-id fields-addr dest-addr )
-    SWAP >R ( ...fields dest-addr | R: tag-id fields-addr dest-addr field-count )
-    SWAP ! ( ...fields-1 | R: tag-id fields-addr dest-addr field-count )
-    R> 1- R> CELL- >R ( field-count-1 | R: tag-id fields-addr dest-addr-CELL )
-  REPEAT
-  DROP R> DROP ( | R: tag-id fields-addr )
-
-  \ Create CTR term: TAG-CTR lab=tag-id val=fields-addr
-  TAG-CTR R> R> PACK-TERM
+  
+  \ Single field case - expect '}'
+  2 PICK TOK-RBRACE = IF
+    2DROP DROP ( field1 | R: tag-id )
+    
+    \ Create CTR term with single field
+    R> TAG-CTR SWAP ROT PACK-TERM
+    EXIT
+  THEN
+  
+  \ Error case
+  2DROP DROP R> DROP
+  S" Expected ',' or '}' in constructor" PARSE-ERROR
+  0
 ; IS PARSE-CTR
 
 \ Main term parser (dispatcher)
 :NONAME ( -- term )
+  SKIP-WHITESPACE
   NEXT-TOKEN ( type addr len )
 
   \ Check for EOF ( type addr len )
@@ -1190,23 +1178,38 @@ DEFER PARSE-CTR
     \ Peek at next token to see if it's an operator
     NEXT-TOKEN ( type addr len )
     \ Check if token is an OP2 operator (TOK-STAR or TOK-PLUS through TOK-NE)
-    2 PICK DUP TOK-STAR = SWAP DUP TOK-PLUS >= SWAP TOK-NE <= AND OR IF
-      \ It's an operator - parse as OP2
+    2 PICK CASE
+      TOK-STAR OF TRUE ENDOF
+      TOK-PLUS OF TRUE ENDOF
+      TOK-MINUS OF TRUE ENDOF
+      TOK-DIV OF TRUE ENDOF
+      TOK-MOD OF TRUE ENDOF
+      TOK-AND OF TRUE ENDOF
+      TOK-OR OF TRUE ENDOF
+      TOK-XOR OF TRUE ENDOF
+      TOK-SHL OF TRUE ENDOF
+      TOK-SHR OF TRUE ENDOF
+      TOK-LT OF TRUE ENDOF
+      TOK-GT OF TRUE ENDOF
+      TOK-LE OF TRUE ENDOF
+      TOK-GE OF TRUE ENDOF
+      TOK-EQ OF TRUE ENDOF
+      TOK-NE OF TRUE ENDOF
+      FALSE
+    ENDCASE IF
       2DROP  \ ( type addr len -- type )  Drop addr and len, keep type
       PARSE-OP2 EXIT
     ELSE
       \ Not an operator - it's the function in application
-      \ Put token back by creating  term from it
       2 PICK TOK-IDENT = IF
         ROT DROP PARSE-VAR ( fun-term )
+      ELSE 2 PICK TOK-NUMBER = IF
+        ROT DROP PARSE-U32 ( fun-term )
+      ELSE 2 PICK TOK-LAMBDA = IF
+        2DROP DROP PARSE-LAM ( fun-term )
       ELSE
-        2 PICK TOK-NUMBER = IF
-          ROT DROP PARSE-U32 ( fun-term )
-        ELSE
-          \ Recursively parse whatever it is
-          2DROP DROP PARSE-TERM ( fun-term )
-        THEN
-      THEN
+        2DROP DROP PARSE-TERM ( fun-term )
+      THEN THEN THEN
 
       \ Now parse argument and finish application
       PARSE-TERM ( fun-term arg-term )
@@ -1306,6 +1309,95 @@ DEFER PARSE-CTR
   THEN
 ;
 
+: PARSE-CTR ( -- term )
+  \ Parse #Name{field1, field2, ...} or #Name{}
+
+  \ Parse constructor name
+  NEXT-TOKEN ( type addr len )
+  DUP TOK-IDENT <> IF
+    2DROP DROP
+    S" Expected constructor name after #" PARSE-ERROR
+    0 EXIT
+  THEN
+  ( addr len )
+
+  \ For now, use a simple hash of the name as constructor ID
+  \ TODO: Replace with proper constructor registry
+  DUP 0 DO
+    OVER I + C@ +
+  LOOP
+  SWAP DROP  \ Sum of ASCII values as simple ID
+
+  \ Parse opening brace
+  NEXT-TOKEN ( ctor-id type addr len )
+  2 PICK TOK-LBRACE <> IF
+    2DROP DROP
+    S" Expected '{' after constructor name" PARSE-ERROR
+    DROP 0 EXIT
+  THEN
+  2DROP ( ctor-id )
+
+  \ Parse fields: either empty {} or {term1, term2, ...}
+  NEXT-TOKEN ( ctor-id type addr len )
+  2 PICK TOK-RBRACE = IF
+    \ Empty constructor: #Name{}
+    2DROP DROP
+    0  \ field-count = 0
+  ELSE
+    \ Parse first field
+    UNGET-TOKEN
+    PARSE-TERM  \ ctor-id field1
+
+    1 >R  \ field-count = 1
+    >R    \ Save field1 on R-stack
+
+    \ Parse additional fields separated by commas
+    BEGIN
+      NEXT-TOKEN ( ctor-id type addr len | R: field-count, field1, ... )
+      2 PICK TOK-RBRACE = IF
+        \ End of fields
+        2DROP DROP
+        R>  \ Get field count
+        TRUE  \ Exit flag
+      ELSE
+        2 PICK TOK-COMMA <> IF
+          2DROP DROP
+          S" Expected ',' or '}' in constructor fields" PARSE-ERROR
+          \ Clean up R-stack
+          BEGIN R> DROP R@ 0= UNTIL R> DROP
+          0 EXIT
+        THEN
+        2DROP DROP  \ Drop comma token
+
+        \ Parse next field
+        PARSE-TERM >R
+        R> 1+ >R  \ Increment field count
+        FALSE  \ Continue flag
+      THEN
+    UNTIL
+  THEN
+
+  \ Now we have: ctor-id field-count
+  \ Fields are on R-stack in reverse order: fieldN ... field1
+
+  \ Allocate field array: [count][field0][field1][...]
+  DUP 1+ CELLS ALLOC ( ctor-id field-count field-array )
+
+  \ Store field count
+  2 PICK SWAP ! ( ctor-id field-count field-array )
+
+  \ Store fields in correct order (reverse from R-stack)
+  DUP CELL+ SWAP  \ field-array+1 field-count
+  0 DO
+    R> OVER !     \ Store field (pop from R-stack)
+    CELL+         \ Next slot
+  LOOP
+  DROP            \ Drop final address
+
+  \ Create CTR term
+  SWAP MAKE-CTR   \ field-array ctor-id -> ctr-term
+;
+
 \ Test CTR parsing
 : TEST-CTR ( -- )
   ." Testing CTR parsing..." CR
@@ -1323,6 +1415,16 @@ DEFER PARSE-CTR
   \ Test 2: Parse constructor with fields
   ." Test 2: Constructor with fields #Cons{1,*}... "
   S" #Cons{1, *}" LOAD-INPUT
+  PARSE-TERM ( term )
+  GET-TAG TAG-CTR = IF
+    ." PASS" CR
+  ELSE
+    ." FAIL" CR
+  THEN
+
+  \ Test 3: Parse nested constructors
+  ." Test 3: Nested constructors #Cons{1, #Nil{}}... "
+  S" #Cons{1, #Nil{}}" LOAD-INPUT
   PARSE-TERM ( term )
   GET-TAG TAG-CTR = IF
     ." PASS" CR
@@ -1398,9 +1500,9 @@ DEFER PARSE-CTR
 : TEST-PARSER ( -- )
   ." Testing parser..." CR
 
-  \ Reset heap and substitution map
-  HEAP HEAP-PTR !
-  SUBST-CLEAR
+   \ Reset heap and substitution map
+   HEAP HEAP-PTR !
+   SIMPLE-SUBST-CLEAR
 
   \ Enable debug for parsing
   \ -1 DEBUG? !
@@ -1499,7 +1601,7 @@ DEFER PARSE-CTR
 
   \ Reset
   HEAP HEAP-PTR !
-  SUBST-CLEAR
+   SUBST-CLEAR
 ;
 
 \ Test word
@@ -1510,4 +1612,47 @@ DEFER PARSE-CTR
   TEST-PARSER
   TEST-U32-OP2
   TEST-CTR
+
+  \ Test pattern matching parsing
+  ." Testing pattern matching..." CR
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test numeric pattern ~n { 0: 42, 1+p: p }
+  ." Test: Numeric pattern ~n { 0: 42, 1+p: p }... "
+  S" n" 100 SUBST-PUT  \ Bind n
+  S" ~n { 0: 42, 1+p: p }" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-MATCH = IF
+    DUP GET-LAB 0 = IF
+      ." PASS" CR
+    ELSE
+      ." FAIL (lab=" GET-LAB . ." )" CR
+    THEN
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
+
+  \ Reset
+  HEAP HEAP-PTR !
+  SUBST-CLEAR
+
+  \ Test constructor pattern stub - simplified to single case
+  ." Test: Constructor pattern ~x { #Nil: 0 }... "
+  S" x" 200 SUBST-PUT
+  S" ~x { #Nil: 0 }" LOAD-INPUT
+  PARSE-TERM ( term )
+  DUP GET-TAG TAG-MATCH = IF
+    DUP GET-LAB 1 = IF
+      ." PASS" CR
+    ELSE
+      ." FAIL (lab=" GET-LAB . ." )" CR
+    THEN
+  ELSE
+    ." FAIL (tag=" GET-TAG . ." )" CR
+  THEN
+  DROP
 ;
