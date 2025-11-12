@@ -115,8 +115,13 @@ VARIABLE ITR-COUNT
 : WHNF ( term -- whnf-term )
   BEGIN
     DUP IS-VALUE? 0= WHILE
+    DUP >R  \ Save original term on return stack
     INTERACT-STEP
-    DUP 0= IF EXIT THEN  \ Stuck term, stop
+    DUP 0= IF
+      \ Stuck term: drop 0, restore original term from R-stack, exit
+      DROP R> EXIT
+    THEN
+    R> DROP  \ Drop saved term since we got a valid result
   REPEAT
 ;
 

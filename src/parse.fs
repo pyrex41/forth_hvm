@@ -343,16 +343,29 @@ DEFER PARSE-TERM
     \ Skip the '@' character
     SWAP 1+ SWAP 1- ( c-addr+1 u-1 )
 
-    \ Allocate heap space for name (2 cells: addr, len)
-    2 ALLOC ( c-addr u ref-loc )
-    DUP >R ( c-addr u ref-loc | R: ref-loc )
+    \ Allocate heap space for name string (actual characters)
+    DUP ALLOC ( c-addr u name-str-addr )
 
-    \ Store name address and length
-    TUCK ! ( c-addr ref-loc | R: ref-loc )
-    CELL+ ! ( | R: ref-loc )
+    \ Copy the name string to heap (using BOOK-PUT pattern)
+    \ CMOVE expects: ( source-addr dest-addr count )
+    \ Pattern: 2 PICK OVER 3 PICK CMOVE leaves stack unchanged
+    2 PICK OVER 3 PICK CMOVE ( c-addr u name-str-addr )
+
+    \ Rearrange to ( name-str-addr u ) matching BOOK-PUT pattern
+    ROT DROP SWAP ( name-str-addr u )
+
+    \ Now allocate heap space for ref structure (2 cells: addr, len)
+    2 ALLOC ( name-str-addr u ref-loc )
+
+    \ Store in ref structure using BOOK-PUT pattern (but keep ref-loc)
+    \ Stack: ( name-str-addr u ref-loc )
+    DUP >R ( name-str-addr u ref-loc | R: ref-loc )
+    ROT OVER ! ( u ref-loc | R: ref-loc ) \ Store name-str-addr at ref-loc
+    SWAP OVER CELL+ ! ( ref-loc | R: ref-loc ) \ Store u at ref-loc+CELL
+    RDROP ( ref-loc )
 
     \ Create REF term: tag=REF, lab=0, val=ref-loc
-    TAG-REF 0 R> PACK-TERM
+    TAG-REF 0 ROT PACK-TERM
     EXIT
   THEN
 
@@ -491,7 +504,8 @@ DEFER PARSE-TERM
 \ Parse OP2 binary operation: (+ a b) or (- a b) etc.
 : PARSE-OP2 ( op-token -- term )
   \ Get opcode
-  TOKEN-TO-OP2 >R ( | R: opcode )
+  TOKEN-TO-OP2
+  >R ( | R: opcode )
 
   \ Parse left operand
   PARSE-TERM >R ( | R: opcode lhs-term )
@@ -1178,7 +1192,7 @@ DEFER PARSE-CTR
     \ Check if token is an OP2 operator (TOK-STAR or TOK-PLUS through TOK-NE)
     2 PICK DUP TOK-STAR = SWAP DUP TOK-PLUS >= SWAP TOK-NE <= AND OR IF
       \ It's an operator - parse as OP2
-      ROT 2DROP  \ ( type addr len -- type )
+      2DROP  \ ( type addr len -- type )  Drop addr and len, keep type
       PARSE-OP2 EXIT
     ELSE
       \ Not an operator - it's the function in application

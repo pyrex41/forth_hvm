@@ -1,0 +1,5 @@
+// Test: Simple application chain
+// f(g(5)) where f = id, g = id
+f = *
+g = *
+main = (@f (@g 5))

@@ -1,0 +1,50 @@
+// Test all 16 OP2 operators
+// ADD
+add = (+ 10 3)        // Expected: 13
+
+// SUB
+sub = (- 10 3)        // Expected: 7
+
+// MUL
+mul = (* 10 3)        // Expected: 30
+
+// DIV
+div = (/ 10 3)        // Expected: 3
+
+// MOD
+mod = (% 10 3)        // Expected: 1
+
+// Bitwise AND
+band = (& 12 10)      // Expected: 8 (1100 & 1010 = 1000)
+
+// Bitwise OR
+bor = (| 12 10)       // Expected: 14 (1100 | 1010 = 1110)
+
+// Bitwise XOR
+bxor = (^ 12 10)      // Expected: 6 (1100 ^ 1010 = 0110)
+
+// Left shift
+shl = (<< 5 2)        // Expected: 20 (101 << 2 = 10100)
+
+// Right shift
+shr = (>> 20 2)       // Expected: 5 (10100 >> 2 = 101)
+
+// Less than
+lt = (< 3 10)         // Expected: 1 (true)
+
+// Greater than
+gt = (> 3 10)         // Expected: 0 (false)
+
+// Less than or equal
+lte = (<= 3 10)       // Expected: 1 (true)
+
+// Greater than or equal
+gte = (>= 3 10)       // Expected: 0 (false)
+
+// Equal
+eq = (== 10 10)       // Expected: 1 (true)
+
+// Not equal
+neq = (!= 10 3)       // Expected: 1 (true)
+
+main = add

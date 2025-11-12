@@ -157,6 +157,7 @@ VARIABLE NAME-LEN  \ Length of current function name
   GET-VAL ( ref-loc )
   DUP @ SWAP CELL+ @ ( name-addr name-len )
 
+
   \ Look up in book dictionary
   BOOK-FIND ( arity term )
   SWAP DROP ( term )

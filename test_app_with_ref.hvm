@@ -1,0 +1,4 @@
+// Test: REF inside APP
+// (f 5) where f=id(5)
+f = 5
+main = (@f 3)
