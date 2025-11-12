@@ -1,7 +1,8 @@
 \ heap.fs - Heap management and garbage collection
 
-\ Heap buffer (16k cells = 128KB on 64-bit)
-16384 CONSTANT HEAP-SIZE
+\ Heap buffer (128 cells = 1024 bytes)
+128 CONSTANT HEAP-SIZE
+CREATE DUMMY HERE 1000 ALLOT DROP
 CREATE HEAP HEAP-SIZE CELLS ALLOT
 
 \ Heap pointer and limit
@@ -32,13 +33,11 @@ HEAP HEAP-PTR !
   CELLS                          \ convert to bytes
   HEAP-PTR @ TUCK                \ bytes ptr bytes ptr
   + DUP HEAP-END >= IF           \ bytes ptr new-ptr
-    \ Wraparound needed
-    DROP DROP                    \ bytes
-    HEAP-START TUCK              \ start bytes start
-    + HEAP-PTR !                 \ Update pointer
-    \ Return heap start
+    \ No wraparound - error
+    DROP DROP 0
+    S" ALLOC: heap full" RUNTIME-ERROR
   ELSE
-    \ Normal case: no wraparound
+    \ Normal case
     HEAP-PTR !                   \ bytes ptr (update pointer)
     \ Return old pointer value
   THEN
