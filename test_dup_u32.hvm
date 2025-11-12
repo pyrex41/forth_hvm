@@ -1,0 +1,4 @@
+// Test DUP-U32: ! &L{r,s} = 42; &L{r,s}
+// Expected: DUP should copy the U32 value
+// Result should be &L{42, 42} which should simplify
+main = &L{5, 5}
