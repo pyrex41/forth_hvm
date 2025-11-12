@@ -1,0 +1,3 @@
+@add_one = λn. ~n { 0: 1, 1+p: (+ 1 p) }
+@double = λn. ~n { 0: 0, 1+p: (+ p p) }
+@main = (@double (@add_one 2))

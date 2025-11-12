@@ -1,0 +1,10 @@
+// Test wildcard patterns in constructor matching
+// Wildcards (_) should ignore fields without creating bindings
+
+@second = .xs ~xs {
+  #Nil: 0
+  #Cons{_ tail}: tail
+}
+
+@main = @second(#Cons{1 #Cons{2 #Cons{3 #Nil}}})</content>
+<parameter name="filePath">test_wildcard_pattern.hvm

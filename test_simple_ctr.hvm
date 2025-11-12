@@ -1,0 +1,2 @@
+// Simple constructor test
+main = #Cons{1, 2}

@@ -1,0 +1,6 @@
+// Simple constructor pattern test with no fields
+@length = .xs ~xs {
+  #Nil: 0
+}
+
+@main = @length(#Nil{})

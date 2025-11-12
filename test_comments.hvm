@@ -1,0 +1,3 @@
+// Line comment test
+/* Block comment test */
+main = 42

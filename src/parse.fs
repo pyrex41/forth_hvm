@@ -823,21 +823,31 @@ DEFER PARSE-TERM
             S" Expected field name in constructor pattern" PARSE-ERROR
             0 EXIT
           THEN
-          ROT DROP ( scrut-loc case-count write-ptr' num-fields addr len | R: case-array-start tag-id )
+           ROT DROP ( scrut-loc case-count write-ptr' num-fields addr len | R: case-array-start tag-id )
 
-          \ Get fresh bind-id for this field
-          FRESH-BIND-ID ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id )
-          DUP >R ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id bind-id )
+           \ Check if this is a wildcard
+           2DUP S" _" STR= IF
+             \ Wildcard - use bind-id = 0, don't create binding
+             2DROP 0 ( scrut-loc case-count write-ptr' num-fields bind-id | R: case-array-start tag-id )
+           ELSE
+             \ Normal field - get fresh bind-id and create binding
+             FRESH-BIND-ID ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id )
+             DUP >R ( scrut-loc case-count write-ptr' num-fields addr len bind-id | R: case-array-start tag-id bind-id )
 
-           \ Store in SUBST map (use simple version to avoid heap allocation)
-           SIMPLE-SUBST-PUT ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id bind-id )
+             \ Store in SUBST map (use simple version to avoid heap allocation)
+             SIMPLE-SUBST-PUT ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id bind-id )
 
-           \ Store bind-id in case array (after tag and num-fields)
-           \ Address is: write-ptr' + 1*CELL + field-idx*CELL
-           \ write-ptr' = case-start + 1*CELL, field-idx = num-fields
-           OVER CELL+ ( scrut-loc case-count write-ptr' num-fields bind-id-addr | R: case-array-start tag-id bind-id )
-           OVER CELLS + ( scrut-loc case-count write-ptr' num-fields storage-addr | R: case-array-start tag-id bind-id )
-           R> SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+             R> ( scrut-loc case-count write-ptr' num-fields bind-id | R: case-array-start tag-id )
+           THEN
+
+           DUP >R ( scrut-loc case-count write-ptr' num-fields bind-id | R: case-array-start tag-id bind-id )
+
+            \ Store bind-id in case array (after tag and num-fields)
+            \ Address is: write-ptr' + 1*CELL + field-idx*CELL
+            \ write-ptr' = case-start + 1*CELL, field-idx = num-fields
+            OVER CELL+ ( scrut-loc case-count write-ptr' num-fields bind-id-addr | R: case-array-start tag-id bind-id )
+            OVER CELLS + ( scrut-loc case-count write-ptr' num-fields storage-addr | R: case-array-start tag-id bind-id )
+            R> SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
 
           \ Increment field count
           1+ ( scrut-loc case-count write-ptr' num-fields' | R: case-array-start tag-id )

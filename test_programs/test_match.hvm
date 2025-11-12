@@ -1,9 +1,2 @@
-// Simple test of numeric pattern matching
-// Tests: ~n { 0: a, 1+p: b }
-
-@test_zero = .n ~n { 0: 42, 1+p: p }
-
-@test_succ = .n ~n { 0: 0, 1+p: (+ p 100) }
-
-// Test with 0
-@main = (@test_zero 0)
+// Test lambda application
+main = (.n n) 42

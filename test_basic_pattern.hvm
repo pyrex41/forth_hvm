@@ -1,0 +1,9 @@
+// Test basic constructor patterns without wildcards
+
+@second = .xs ~xs {
+  #Nil: 0
+  #Cons{head tail}: tail
+}
+
+@main = @second(#Cons{1 #Cons{2 #Cons{3 #Nil}}})</content>
+<parameter name="filePath">test_basic_pattern.hvm

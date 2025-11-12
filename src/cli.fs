@@ -83,35 +83,39 @@ VARIABLE END-TIME
   ;
 
 \ Load file into INPUT-BUF
-  : LOAD-FILE ( c-addr u -- flag )
-    \ Returns TRUE on success, FALSE on failure
-    \ Clear substitution map from any previous file
-    SIMPLE-SUBST-CLEAR
+   : LOAD-FILE ( c-addr u -- flag )
+     \ Returns TRUE on success, FALSE on failure
+     \ Clear substitution map from any previous file
+     SIMPLE-SUBST-CLEAR
 
-    DEBUG? @ IF ." [DEBUG] Loading file: " 2DUP TYPE CR THEN
+     DEBUG? @ IF ." [DEBUG] Loading file: " 2DUP TYPE CR THEN
 
-    R/O OPEN-FILE IF
-      DROP 2DROP S" Could not open file" FILE-ERROR
-      FALSE EXIT
-    THEN
+     R/O OPEN-FILE IF
+       DROP 2DROP S" Could not open file" FILE-ERROR
+       FALSE EXIT
+     THEN
 
-    >R  \ Save file ID
-    TEST-INPUT-BUF MAX-INPUT-LEN R@ READ-FILE IF
+       >R  \ Save file ID
+
+       \ Read directly into INPUT-BUF
+       INPUT-BUF MAX-INPUT-LEN R@ READ-FILE IF
+        R> CLOSE-FILE DROP
+        S" Could not read file" FILE-ERROR
+        FALSE EXIT
+      THEN
+
+      \ Set input length, limit to buffer size
+      MAX-INPUT-LEN MIN INPUT-LEN !
+
+      \ Reset position and line/col
+      0 INPUT-POS !
+      1 CURRENT-LINE !
+      1 CURRENT-COL !
+
+      \ Close file
       R> CLOSE-FILE DROP
-      2DROP S" Could not read file" FILE-ERROR
-      FALSE EXIT
-    THEN
-
-    \ Set input length
-    INPUT-LEN !
-
-    \ Set INPUT-BUF to TEST-INPUT-BUF
-    TEST-INPUT-BUF INPUT-BUF !
-
-    \ Close file
-    R> CLOSE-FILE DROP
-    TRUE
-  ;
+      TRUE
+   ;
 
 \ Pretty-print a term (recursive version)
 DEFER .TERM
@@ -232,22 +236,30 @@ DEFER .TERM
 DEFER PRINT-STATS
 
 \ Run mode
-  : RUN-FILE ( c-addr u -- )
-    \ Buffers are allocated at startup
+   : RUN-FILE ( c-addr u -- )
+     \ Buffers are allocated at startup
 
-    \ Try to load the file
-   2DUP LOAD-FILE IF
-     \ File loading failed, fall back to test string
-     2DROP
-      S" main = 42" LOAD-INPUT
-     QUIET? @ 0= IF ." [Loading test string - file loading failed]" CR THEN
-   ELSE
-     QUIET? @ 0= IF ." [Loaded file successfully]" CR THEN
-   THEN
+      \ Reset heap and substitution table for each file
+      HEAP HEAP-PTR !
+      SUBST-CLEAR
+      SIMPLE-SUBST-CLEAR
 
-   \ Reset input position
-   0 INPUT-POS !
-   0 TOKEN-POS !
+     \ Try to load the file
+    2DUP LOAD-FILE IF
+      \ File loading succeeded
+      QUIET? @ 0= IF ." [Loaded file successfully]" CR THEN
+    ELSE
+      \ File loading failed, fall back to test string
+      2DROP
+       S" main = 42" LOAD-INPUT
+      QUIET? @ 0= IF ." [Loading test string - file loading failed]" CR THEN
+    THEN
+
+    \ Reset input position
+    0 INPUT-POS !
+    0 TOKEN-POS !
+    1 CURRENT-LINE !
+    1 CURRENT-COL !
 
    \ Parse all definitions
    LOAD-BOOK DROP DROP  \ LOAD-BOOK expects dummy args we don't use
@@ -371,12 +383,15 @@ DEFER PRINT-STATS
    \ Test 3: test_constructor_pattern.hvm
    S" ../test_programs/test_constructor_pattern.hvm" RUN-FILE DROP 1+
 
-   \ Test 4: sum_list.hvm
-   S" ../test_programs/sum_list.hvm" RUN-FILE DROP 1+
+    \ Test 4: sum_list.hvm
+    S" ../test_programs/sum_list.hvm" RUN-FILE DROP 1+
 
-   QUIET? @ 0= IF
-     CR ." Test suite completed: " . ." tests run" CR
-   THEN
+    \ Test 5: test_wildcard_pattern.hvm
+    S" ../test_programs/test_wildcard_pattern.hvm" RUN-FILE DROP 1+
+
+    QUIET? @ 0= IF
+      CR ." Test suite completed: " . ." tests run (including wildcard patterns)" CR
+    THEN
  ;
 
 \ Test command

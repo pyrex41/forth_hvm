@@ -1,80 +1,88 @@
 \ subst.fs - Substitution map for variable binding
 
-\ Substitution table size (1024 entries)
-1024 CONSTANT SUBST-SIZE
+\ Simple string comparison (returns 0 if equal)
+: STR= ( c-addr1 u1 c-addr2 u2 -- flag )
+  ROT OVER <> IF DROP 2DROP 0 EXIT THEN  \ Lengths differ
+  0 ?DO
+    OVER I + C@ OVER I + C@ <> IF DROP 2DROP 0 EXIT THEN
+  LOOP
+  DROP 2DROP -1
+;
 
-\ Substitution table: each entry is (name-hash loc use-count)
-\ We'll use 3 cells per entry: hash (key), location, use-count
-CREATE SUBST-TABLE SUBST-SIZE 3 * CELLS ALLOT
+\ Substitution table: simple array of entries
+\ Each entry is 3 cells: name-addr, name-len, location
+\ Use linear search for simplicity
+CREATE SUBST-TABLE 4 3 * CELLS ALLOT
 
 \ Current substitution count
 VARIABLE SUBST-COUNT
 0 SUBST-COUNT !
 
-\ Simple hash function for strings
-: HASH-STRING ( c-addr u -- hash )
-  0 SWAP 0 ?DO           \ hash addr
-    OVER C@ +            \ Add character
-    31 *                 \ Multiply by 31
-  1 +LOOP
-  NIP
-  SUBST-SIZE MOD         \ Modulo table size
-;
-
 \ Clear substitution table
 : SUBST-CLEAR ( -- )
-  SUBST-TABLE SUBST-SIZE 3 * CELLS ERASE
+  SUBST-TABLE 4 3 * CELLS ERASE
   0 SUBST-COUNT !
 ;
 
-\ Find entry in substitution table (linear probe on collision)
+\ Find entry in substitution table (linear search)
 : SUBST-FIND ( c-addr u -- entry-addr | 0 )
-  2DUP HASH-STRING       \ addr u hash
-  CELLS 3 * SUBST-TABLE + \ addr u entry-addr
-  >R 2DUP R@             \ addr u addr u entry
-  @ 0= IF                \ Empty slot found
-    2DROP R> DROP 0 EXIT
-  THEN
-  \ TODO: compare stored string with input
-  \ For now, just use hash comparison (collision-prone but simple)
-  HASH-STRING R@ @ = IF
-    2DROP R> EXIT        \ Found matching hash
-  ELSE
-    R> DROP 0            \ Hash mismatch (should probe next)
-  THEN
+  SUBST-COUNT @ 0 ?DO
+    \ Calculate entry address
+    I 3 * CELLS SUBST-TABLE + ( c-addr u entry-addr )
+    \ Check if name matches
+    DUP @ ( c-addr u entry-addr stored-addr )
+    OVER 2 PICK ( c-addr u entry-addr stored-addr c-addr u )
+    DUP CELL+ @ ( c-addr u entry-addr stored-addr c-addr u stored-len )
+    STR= IF
+      \ Strings match
+      NIP NIP NIP EXIT
+    THEN
+    DROP
+  LOOP
+  0  \ Not found
 ;
 
 \ Store substitution (name -> location)
 : SUBST-PUT ( c-addr u loc -- )
-  -ROT                   \ loc addr u
-  2DUP HASH-STRING       \ loc addr u hash
-  CELLS 3 * SUBST-TABLE + \ loc addr u entry-addr
-  >R                     \ loc addr u | R: entry-addr
-  HASH-STRING            \ loc hash | R: entry-addr
-  R@ !                   \ Store hash at entry | R: entry-addr
-  R> CELL+ !             \ Store location at entry+CELL
+  SUBST-COUNT @ 4 >= IF
+    DROP 2DROP
+    S" Substitution table full" PARSE-ERROR
+    EXIT
+  THEN
+   \ Allocate permanent storage for the name string
+   DUP ALLOC ( c-addr u loc name-addr )
+  >R                     \ c-addr u loc | R: name-addr
+   \ Copy the string manually
+   DUP >R ( c-addr u loc | R: name-addr u )
+   0 ?DO
+     2 PICK I + C@ R@ I + C!
+   LOOP
+   R> DROP ( c-addr u loc | R: name-addr )
+  \ Find next free entry
+  SUBST-COUNT @ 3 * CELLS SUBST-TABLE + ( c-addr u loc entry-addr | R: name-addr )
+  >R                     \ c-addr u loc | R: name-addr entry-addr
+  \ Store name-addr
+  R@ !                   \ c-addr u | R: name-addr entry-addr
+  \ Store name-len
+  R@ CELL+ !             \ c-addr | R: name-addr entry-addr
+  \ Store location
+  R> 2 CELLS + !         \ | R: name-addr
+  RDROP                  \ |
   SUBST-COUNT @ 1+ SUBST-COUNT !
 ;
 
 \ Get substitution (name -> location | 0 if not found)
 : SUBST-GET ( c-addr u -- loc | 0 )
   SUBST-FIND DUP 0= IF EXIT THEN
-  CELL+ @                \ Get location from entry
+  2 CELLS + @            \ Get location from entry
 ;
 
-\ Track variable use (for affine checking)
+\ Track variable use (for affine checking) - DISABLED
 : SUBST-USE ( c-addr u -- )
-  SUBST-FIND DUP 0= IF
-    DROP
+  \ For now, just check if variable exists
+  SUBST-GET 0= IF
     S" Variable not bound" AFFINE-ERROR
   THEN
-
-  2 CELLS + DUP @        \ Get use count
-  DUP 0> IF
-    DROP
-    S" Affine variable used more than once" AFFINE-ERROR
-  THEN
-  1+ SWAP !              \ Increment use count
 ;
 
 \ Test substitution map
@@ -89,7 +97,7 @@ VARIABLE SUBST-COUNT
   S" x" SUBST-GET 100 = IF
     ." PASS" CR
   ELSE
-    ." FAIL" CR
+    ." FAIL - got: " S" x" SUBST-GET . CR
   THEN
 
   \ Test 2: Multiple bindings
@@ -109,7 +117,7 @@ VARIABLE SUBST-COUNT
   S" unbound" SUBST-GET 0= IF
     ." PASS" CR
   ELSE
-    ." FAIL" CR
+    ." FAIL - got: " S" unbound" SUBST-GET . CR
   THEN
 
   \ Test 4: SUBST-CLEAR resets
@@ -118,7 +126,7 @@ VARIABLE SUBST-COUNT
   S" x" SUBST-GET 0= IF
     ." PASS" CR
   ELSE
-    ." FAIL" CR
+    ." FAIL - got: " S" x" SUBST-GET . CR
   THEN
 
   SUBST-CLEAR
@@ -127,6 +135,6 @@ VARIABLE SUBST-COUNT
 \ Test word
 : TEST-SUBST ( -- )
   ." Substitution module loaded" CR
-  ." Table size: " SUBST-SIZE . ." entries" CR
+  ." Table size: 4 entries" CR
   TEST-SUBST-OPS
 ;

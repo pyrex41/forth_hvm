@@ -41,11 +41,12 @@
 - ✅ Multiple cases (unlimited for constructors)
 
 ### Remaining Work (Optional Features)
-1. **❌ Wildcard patterns** (_:)
-   - Catch-all case for any pattern
-   - Simple to add now that constructors work
-   - Estimated: ~50-100 LOC
-   - Priority: **Low** (can use explicit cases instead)
+1. **✅ Wildcard patterns** (_:)
+    - Catch-all case for any pattern
+    - Implemented in parser and reduction logic
+    - Added bind-id = 0 detection and skip substitution
+    - Actual: ~30 LOC changes
+    - Status: **Complete**
 
 2. **❌ Data declarations** (data Nat { #Z #S{pred} })
    - Optional: not needed for execution

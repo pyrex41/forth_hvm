@@ -1,0 +1,2 @@
+// Simple constructor pattern matching test
+@main = ~x { #Nil: 42 }

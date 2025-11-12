@@ -1,0 +1,7 @@
+// Simple constructor pattern test
+@length = .xs ~xs {
+  #Nil: 0
+}
+
+@main = @length(#Nil{})</content>
+<parameter name="filePath">test_simple_constructor.hvm

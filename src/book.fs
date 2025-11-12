@@ -27,33 +27,15 @@ VARIABLE NAME-LEN  \ Length of current function name
     EXIT
   THEN
 
-  \ Save term and arity on R-stack
-  >R >R ( name-addr name-len | R: term arity )
-
-   \ Allocate heap space for function name and copy it
-   \ This allows multiple functions without NAME-BUF collision
-   DUP CELL+ CELL 1- / ( name-addr name-len cells-needed | R: term arity )
-   ALLOC ( name-addr name-len name-copy-addr | R: term arity )
-
-    \ Copy the name to allocated space
-    \ Stack: ( name-addr name-len name-copy-addr )
-    DUP >R SWAP CMOVE R> ( name-copy-addr | R: term arity )
-
-  \ Rearrange to ( name-copy-addr name-len )
-  ROT DROP SWAP ( name-copy-addr name-len | R: term arity )
-
-  \ Restore arity and term
-  R> R> ( name-copy-addr name-len arity term )
-
   \ Get book entry location
-  BOOK-COUNT @ BOOK-ENTRY@ ( name-copy-addr name-len arity term entry-addr )
+  BOOK-COUNT @ BOOK-ENTRY@ ( name-addr name-len arity term entry-addr )
 
   \ Store: [name-addr] [name-len] [arity] [term-value]
-  >R ( name-copy-addr name-len arity term | R: entry-addr )
-  R@ 3 CELLS + !  ( name-copy-addr name-len arity | R: entry-addr ) \ Store term value directly
-  R@ 2 CELLS + !  ( name-copy-addr name-len | R: entry-addr ) \ Store arity
-  R@ CELL+ !      ( name-copy-addr | R: entry-addr ) \ Store name-len
-  R> !            ( ) \ Store name-copy-addr
+  >R ( name-addr name-len arity term | R: entry-addr )
+  R@ 3 CELLS + !  ( name-addr name-len arity | R: entry-addr ) \ Store term value directly
+  R@ 2 CELLS + !  ( name-addr name-len | R: entry-addr ) \ Store arity
+  R@ CELL+ !      ( name-addr | R: entry-addr ) \ Store name-len
+  R> !            ( ) \ Store name-addr
 
   \ Increment count
   1 BOOK-COUNT +!
@@ -122,6 +104,12 @@ VARIABLE NAME-LEN  \ Length of current function name
 
    \ Save function name - copy to NAME-BUF since TOKEN-BUF will be reused
    ROT DROP ( addr len ) \ Drop type
+
+   \ Strip leading '@' if present
+   OVER C@ 64 = IF  \ '@'
+     SWAP 1+ SWAP 1- ( addr+1 len-1 )
+   THEN
+
    DUP NAME-LEN ! ( addr len ) \ Save length
    NAME-BUF SWAP CMOVE ( )
 

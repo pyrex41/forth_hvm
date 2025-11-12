@@ -377,10 +377,45 @@ DEFER SUBST-WALK
 ; IS APP-SUP
 
 :NONAME ( app-term -- reduced-term )
-  \ (#T{fields} arg) -> pattern matching and destructuring
-  \ For now, return stuck term since CTR parsing is Phase 4
-  \ TODO: Implement full pattern matching when CTR terms are available
-  DROP 0  \ Return 0 for stuck term
+  \ APP-CTR: (#T{fields} arg) -> prepend arg to fields
+  \ This allows incremental construction of CTR terms
+
+  \ APP term structure: [fun, arg] where fun is CTR
+  DUP GET-VAL ( app-term app-loc )
+  DUP @ ( app-term app-loc ctr-term )
+  SWAP CELL+ @ ( app-term ctr-term arg-term )
+
+  \ Get CTR components
+  OVER CTR-CONSTRUCTOR-ID ( app-term ctr-term arg-term ctor-id )
+  OVER CTR-FIELDS-ARRAY ( app-term ctr-term arg-term ctor-id fields-array )
+  OVER CTR-FIELD-COUNT ( app-term ctr-term arg-term ctor-id fields-array old-count )
+
+  \ Allocate new fields array: [new-count][arg][field0][field1][...]
+  DUP 2 + CELLS ALLOC ( app-term ctr-term arg-term ctor-id fields-array old-count new-fields )
+
+  \ Store new count (old-count + 1)
+  DUP >R ( ... | R: new-fields )
+  OVER 1+ R@ ! ( store new-count )
+
+  \ Store arg as first field
+  R@ CELL+ 3 PICK SWAP ! ( store arg-term )
+
+  \ Copy existing fields
+  DUP 0 ?DO
+    \ Get old field i
+    4 PICK I CTR-FIELD ( ... old-field-i )
+    \ Store at position i+1 in new array
+    R@ I 2 + CELLS + !
+  LOOP
+
+  \ Clean up stack
+  DROP DROP DROP DROP R> ( new-fields )
+
+  \ Create new CTR term
+  SWAP MAKE-CTR ( new-ctr-term )
+
+  \ Clean up original app-term
+  NIP NIP
 ; IS APP-CTR
 
 \ Perform OP2 arithmetic operation
@@ -564,18 +599,31 @@ DEFER SUBST-WALK
       BEGIN
         DUP 2 PICK < WHILE ( ... body num-fields field-idx )
 
-        \ Get bind-id for this field
-        3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx curr-case-ptr )
-        OVER 2 + CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id )
+         \ Get bind-id for this field
+         3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx curr-case-ptr )
+         OVER 2 + CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id )
 
-        \ Get field value
-        8 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id scrut-fields-ptr )
-        5 PICK CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value )
+         \ Check if this is a wildcard (bind-id = 0)
+         DUP 0= IF
+           \ Wildcard - skip substitution
+           DROP ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx )
+         ELSE
+           \ Normal field - perform substitution
+           \ Get field value (CTR fields start at index 1 in array)
+           7 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id scrut-fields-ptr )
+           DUP 1+ CELLS + @ ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value )
 
-        \ Substitute in body
-        3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value body )
-        -ROT ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body bind-id field-value )
-        SUBST-WALK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' )
+           \ Substitute in body
+           3 PICK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx bind-id field-value body )
+           -ROT ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body bind-id field-value )
+           SUBST-WALK ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' )
+
+           \ Update body on stack
+           2 PICK >R ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' | R: field-idx )
+           2 PICK DROP ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields field-idx body' | R: field-idx )
+           R> ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields field-idx body' field-idx )
+           ROT ROT ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr num-fields body' field-idx )
+         THEN
 
         \ Update body
         2 PICK >R ( scrut-tag scrut-fields-ptr case-array-ptr num-cases case-idx curr-case-ptr body num-fields field-idx body' | R: field-idx )

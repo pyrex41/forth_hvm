@@ -1,0 +1,18 @@
+// Test wildcard patterns in constructor matching
+// Wildcards (_) should ignore fields without creating bindings
+// This demonstrates the second element extraction from a list
+
+@second = .xs ~xs {
+  #Nil: 0
+  #Cons{_ tail}: tail
+}
+
+@first_and_third = .xs ~xs {
+  #Nil: #Nil
+  #Cons{first _}: first
+}
+
+@main = @second(#Cons{1 #Cons{2 #Cons{3 #Nil}}})
+
+// Expected: #Cons{2 #Cons{3 #Nil}} (the tail of the first Cons)
+// This shows that the head (1) is ignored by the wildcard _

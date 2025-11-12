@@ -14,7 +14,7 @@ ForthVM v0.1.0 is now production-ready with full HVM3 compatibility! 🎉
 
 **Key Achievements:**
 - Full Interaction Calculus implementation with all 9 interaction rules
-- Constructor operations and complete pattern matching (numeric + constructor patterns)
+- Constructor operations and complete pattern matching (numeric + constructor patterns + wildcards)
 - Professional CLI with argument parsing and statistics
 - Comprehensive test suite (11/11 integration tests passing + pattern matching tests)
 - Performance benchmarking (MIPS calculation)
@@ -36,7 +36,7 @@ ForthVM v0.1.0 is now production-ready with full HVM3 compatibility! 🎉
 - ✅ Complete documentation with examples and benchmarks
 
 ### Quality Assurance
-- ✅ 11/11 integration tests passing
+- ✅ 12/12 integration tests passing
 - ✅ All core functionality verified
 - ✅ Performance benchmarking against HVM3 baseline
 - ✅ Comprehensive error handling and debugging

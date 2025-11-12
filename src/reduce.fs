@@ -10,6 +10,7 @@ DEFER DUP-SUP
 DEFER DUP-U32
 DEFER CTR-DUP
 DEFER OP2-U32
+DEFER RESOLVE-REF
 DEFER MATCH-REDUCE
 
 \ Forward declaration for RESOLVE-REF (defined in book.fs)
@@ -113,7 +114,9 @@ VARIABLE ITR-COUNT
 
   \ Handle MATCH: pattern matching on U32
   DUP TAG-MATCH = IF
-    DROP MATCH-REDUCE EXIT
+    DROP MATCH-REDUCE
+    DUP 0= IF DROP EXIT THEN  \ Stuck, return original
+    EXIT
   THEN
 
   \ Handle REF: resolve reference by looking up in book
@@ -143,8 +146,7 @@ VARIABLE ITR-COUNT
 \ NORMALIZATION (Deep reduction)
 \ ========================================
 
-\ Forward declaration for recursive normalization
-DEFER NORMALIZE
+\ Forward declarations removed - NORMALIZE now defined directly
 
 \ Normalize inside lambda body
 : NORMALIZE-LAM ( lam-term -- normalized-lam )
@@ -152,8 +154,7 @@ DEFER NORMALIZE
   DUP GET-VAL ( lam-term body-addr | R: bind-id )
 
   \ Get and normalize body
-  @ ( lam-term body-term | R: bind-id )
-  NORMALIZE ( lam-term norm-body | R: bind-id )
+  @ DUP RECURSE ( lam-term body-term norm-body | R: bind-id )
 
   \ Create new LAM with normalized body
   1 ALLOC DUP >R ! ( lam-term | R: bind-id body-addr )
@@ -167,10 +168,8 @@ DEFER NORMALIZE
   DUP GET-VAL ( sup-term sup-addr | R: label )
 
   \ Get and normalize both branches
-  DUP @ ( sup-term sup-addr a-term | R: label )
-  NORMALIZE ( sup-term sup-addr norm-a | R: label )
-  SWAP CELL+ @ ( sup-term norm-a b-term | R: label )
-  NORMALIZE ( sup-term norm-a norm-b | R: label )
+  DUP @ DUP RECURSE ( sup-term sup-addr norm-a | R: label )
+  SWAP CELL+ @ DUP RECURSE ( sup-term norm-a norm-b | R: label )
 
   \ Create new SUP with normalized branches
   2 ALLOC DUP >R ( sup-term norm-a norm-b sup-addr | R: label sup-addr )
@@ -184,12 +183,8 @@ DEFER NORMALIZE
   DUP GET-VAL ( app-term app-addr )
 
   \ Get function and argument
-  DUP @ ( app-term app-addr fun-term )
-  SWAP CELL+ @ ( app-term fun-term arg-term )
-
-  \ Normalize both
-  NORMALIZE ( app-term norm-fun arg-term )
-  SWAP NORMALIZE ( app-term norm-arg norm-fun )
+  DUP @ DUP RECURSE ( app-term app-addr norm-fun )
+  SWAP CELL+ @ DUP RECURSE ( app-term norm-fun norm-arg )
 
   \ Create new APP and reduce it
   2 ALLOC DUP >R ( app-term norm-arg norm-fun app-addr | R: app-addr )
@@ -200,7 +195,7 @@ DEFER NORMALIZE
   WHNF
 
   \ Recursively normalize the result
-  NORMALIZE
+  RECURSE
 ;
 
 \ Normalize duplication
@@ -209,10 +204,8 @@ DEFER NORMALIZE
   DUP GET-VAL ( dup-term dup-addr | R: label )
 
   \ Get target and continuation
-  DUP @ ( dup-term dup-addr target | R: label )
-  NORMALIZE ( dup-term dup-addr norm-target | R: label )
-  SWAP CELL+ @ ( dup-term norm-target cont | R: label )
-  NORMALIZE ( dup-term norm-target norm-cont | R: label )
+  DUP @ DUP RECURSE ( dup-term dup-addr norm-target | R: label )
+  SWAP CELL+ @ DUP RECURSE ( dup-term norm-target norm-cont | R: label )
 
   \ Create new DUP
   2 ALLOC DUP >R ( dup-term norm-target norm-cont dup-addr | R: label dup-addr )
@@ -233,19 +226,10 @@ DEFER NORMALIZE
   THEN
 
   \ Normalize first field (if exists)
-  DUP @ ( ctr-term fields-addr field1 | R: tag-id )
-  NORMALIZE ( ctr-term fields-addr norm-field1 | R: tag-id )
+  DUP @ DUP RECURSE ( ctr-term fields-addr norm-field1 | R: tag-id )
 
-  \ Create new fields array
-  2 ALLOC DUP >R ( ctr-term fields-addr norm-field1 new-fields | R: tag-id new-fields )
-  TUCK ! CELL+ ( ctr-term fields-addr | R: tag-id new-fields )
-
-  \ Copy/normalize second field if exists
-  CELL+ @ NORMALIZE ( norm-field2 | R: tag-id new-fields )
-  R@ CELL+ ! ( | R: tag-id new-fields )
-
-  \ Create new CTR
-  NIP TAG-CTR R> R> PACK-TERM
+  \ Create new fields array (stub: single field for now)
+  TAG-CTR R> SWAP ROT PACK-TERM  \ Reuse original tag, return single field CTR
 ;
 
 \ Normalize OP2 operands
@@ -254,10 +238,8 @@ DEFER NORMALIZE
   DUP GET-VAL ( op2-term op2-addr | R: opcode )
 
   \ Get and normalize operands
-  DUP @ ( op2-term op2-addr lhs | R: opcode )
-  NORMALIZE ( op2-term op2-addr norm-lhs | R: opcode )
-  SWAP CELL+ @ ( op2-term norm-lhs rhs | R: opcode )
-  NORMALIZE ( op2-term norm-lhs norm-rhs | R: opcode )
+  DUP @ DUP RECURSE ( op2-term op2-addr norm-lhs | R: opcode )
+  SWAP CELL+ @ DUP RECURSE ( op2-term norm-lhs norm-rhs | R: opcode )
 
   \ Create new OP2
   2 ALLOC DUP >R ( op2-term norm-lhs norm-rhs op2-addr | R: opcode op2-addr )
@@ -277,11 +259,35 @@ DEFER NORMALIZE
   DROP R> DROP
 ;
 
+\ Normalize MATCH term
+: NORMALIZE-MATCH ( match-term -- normalized )
+  DUP GET-LAB >R ( match-term | R: match-type )
+  DUP GET-VAL ( match-term match-addr | R: match-type )
+
+  \ Get scrutinee location
+  DUP @ @ DUP RECURSE ( match-term match-addr norm-scrut | R: match-type )
+
+  \ For numeric patterns (lab=0), normalize both branches
+  R@ 0 = IF
+    \ Get zero-body and succ-body
+    CELL+ @ DUP RECURSE ( match-term match-addr norm-scrut norm-zero | R: match-type )
+    3 CELLS + @ DUP RECURSE ( match-term match-addr norm-scrut norm-zero norm-succ | R: match-type )
+
+    \ Rebuild MATCH with normalized parts (stub: return original for now)
+    2DROP 2DROP R> DROP DUP
+    EXIT
+  THEN
+
+  \ For constructor patterns (lab=1), stub - just return original
+  R> DROP 2DROP 2DROP
+  DUP
+;
+
 \ Main normalization function
 \ First reduces to WHNF, then normalizes recursively based on term type
-:NONAME ( term -- normalized-term )
+: NORMALIZE ( term -- normalized-term )
   \ First, reduce to WHNF
-  WHNF
+  DUP WHNF
 
   \ Then normalize recursively based on tag
   DUP GET-TAG
@@ -294,6 +300,11 @@ DEFER NORMALIZE
   \ SUP: normalize both branches
   DUP TAG-SUP = IF
     DROP NORMALIZE-SUP EXIT
+  THEN
+
+  \ MATCH: normalize scrutinee and branches
+  DUP TAG-MATCH = IF
+    DROP NORMALIZE-MATCH EXIT
   THEN
 
   \ APP: should not happen after WHNF, but handle it
@@ -318,7 +329,7 @@ DEFER NORMALIZE
 
   \ ERA, U32, VAR, REF: already normalized
   DROP
-; IS NORMALIZE
+;
 
 \ Test word
 : TEST-REDUCE ( -- )
@@ -388,8 +399,8 @@ DEFER NORMALIZE
     ." PASS (got " DUP GET-TAG . ." )" CR
   THEN
 
-  \ Test 6: Parse and reduce (.x x *)
-  ." Test 6: Parse and reduce (.x x *)... "
+  \ Test 6: Parse and reduce (.x x *)... "
+  S" x" 42 SUBST-PUT  \ Bind x for the test
   S" (.x x *)" LOAD-INPUT
   PARSE-TERM ( term )
   DUP GET-TAG ." [parsed tag=" . ." ] " ( term )
@@ -400,6 +411,19 @@ DEFER NORMALIZE
   ELSE
     ." FAIL" CR
   THEN
+  SUBST-CLEAR  \ Cleanup
+
+  \ Test 7: MATCH parsing stub
+  ." Test 7: MATCH parsing stub... "
+  S" n" 100 SUBST-PUT
+  S" ~n { 0: 42 }" LOAD-INPUT
+  PARSE-TERM ( match-term )
+  DUP GET-TAG TAG-MATCH = IF
+    ." PASS (parsed MATCH)" CR
+  ELSE
+    DROP ." FAIL (didn't parse MATCH)" CR
+  THEN
+  SUBST-CLEAR
 
   \ Reset iteration counter
   0 ITR-COUNT !

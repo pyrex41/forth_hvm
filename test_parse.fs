@@ -1,0 +1,123 @@
+\ Minimal test for parsing bug
+
+1024 CONSTANT HEAP-SIZE
+CREATE HEAP HEAP-SIZE CELLS ALLOT
+VARIABLE HEAP-PTR
+HEAP HEAP-PTR !
+
+: ALLOC ( n -- addr )
+  DUP HEAP-SIZE > IF
+    DROP 0
+    S" ALLOC: allocation too large for heap" TYPE CR
+    0
+  THEN
+  CELLS HEAP-PTR @ TUCK +
+  DUP HEAP HEAP-SIZE CELLS + >= IF
+    DROP DROP HEAP DUP
+  THEN
+  DUP HEAP-PTR !
+;
+
+\ Simple term packing for testing
+: PACK-TERM ( tag lab val -- term )
+  18 LSHIFT OR 18 LSHIFT OR
+;
+
+\ Constants
+0 CONSTANT TAG-REF
+0 CONSTANT TAG-VAR
+
+\ Simple substitution
+VARIABLE GLOBAL-BIND-NAME-ADDR
+VARIABLE GLOBAL-BIND-NAME-LEN
+VARIABLE GLOBAL-BIND-ID
+
+: SIMPLE-SUBST-GET ( c-addr u -- loc | 0 )
+  DUP GLOBAL-BIND-NAME-LEN @ <> IF DROP 0 EXIT THEN
+  GLOBAL-BIND-NAME-ADDR @ GLOBAL-BIND-NAME-LEN @ STR= IF
+    GLOBAL-BIND-ID @
+  ELSE
+    0
+  THEN
+;
+
+\ Input buffer
+4096 CONSTANT MAX-INPUT-LEN
+CREATE INPUT-BUF MAX-INPUT-LEN ALLOT
+VARIABLE INPUT-LEN
+VARIABLE INPUT-POS
+0 INPUT-POS !
+
+: LOAD-INPUT ( c-addr u -- )
+  DUP INPUT-LEN !
+  INPUT-BUF SWAP CMOVE
+  0 INPUT-POS !
+;
+
+: END-OF-INPUT? ( -- flag )
+  INPUT-POS @ INPUT-LEN @ >=
+;
+
+: PEEK-CHAR ( -- c )
+  END-OF-INPUT? IF 0 ELSE INPUT-BUF INPUT-POS @ + C@ THEN
+;
+
+: NEXT-CHAR ( -- c )
+  PEEK-CHAR DUP 0<> IF INPUT-POS @ 1+ INPUT-POS ! THEN
+;
+
+: IS-ALPHA? ( c -- flag )
+  DUP 65 >= OVER 90 <= AND
+  SWAP DUP 97 >= SWAP 122 <= AND OR
+;
+
+: IS-IDENT-CHAR? ( c -- flag )
+  DUP IS-ALPHA? SWAP DUP 95 = SWAP 64 = OR OR
+;
+
+\ Token buffer
+CREATE TOKEN-BUF 256 ALLOT
+VARIABLE TOKEN-LEN
+VARIABLE TOKEN-TYPE
+
+: READ-IDENT ( -- )
+  0 TOKEN-LEN !
+  BEGIN
+    PEEK-CHAR DUP IS-IDENT-CHAR? WHILE
+    NEXT-CHAR
+    TOKEN-BUF TOKEN-LEN @ + C!
+    TOKEN-LEN @ 1+ TOKEN-LEN !
+  REPEAT
+  DROP
+  1 TOKEN-TYPE !
+;
+
+: NEXT-TOKEN ( -- type addr len )
+  END-OF-INPUT? IF 0 0 0 EXIT THEN
+  PEEK-CHAR IS-ALPHA? IF
+    READ-IDENT
+    TOKEN-TYPE @ TOKEN-BUF TOKEN-LEN @
+    EXIT
+  THEN
+  0 0 0
+;
+
+: PARSE-VAR ( c-addr u -- term )
+  SIMPLE-SUBST-GET DUP 0= IF
+    DROP
+    DUP ALLOC ( c-addr u name-str-addr )
+    \ Copy manually for testing
+    OVER C@ OVER C! DROP
+    DROP DROP
+    TAG-REF 0 0 PACK-TERM
+    EXIT
+  THEN
+  TAG-VAR 0 ROT PACK-TERM
+;
+
+\ Test
+S" f" LOAD-INPUT
+NEXT-TOKEN ( type addr len )
+." Token: type=" . ." addr=" . ." len=" . CR
+PARSE-VAR
+." Parse successful" CR

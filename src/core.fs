@@ -91,11 +91,72 @@ $1FFFFFFFFFF CONSTANT VAL-MASK  \ 41 bits: 2199023255551
   IF ." Test 3: PASS" CR ELSE ." Test 3: FAIL" CR THEN
 ;
 
+\ CTR (Constructor) term utilities
+\ CTR terms: TAG-CTR, constructor_id (lab), fields_array_ptr (val)
+
+: MAKE-CTR ( constructor_id fields_array -- ctr-term )
+  \ Stack: constructor_id fields_array
+  \ Create CTR term: TAG-CTR constructor_id fields_array
+  TAG-CTR -ROT PACK-TERM
+;
+
+: CTR-CONSTRUCTOR-ID ( ctr-term -- constructor_id )
+  GET-LAB
+;
+
+: CTR-FIELDS-ARRAY ( ctr-term -- fields_array )
+  GET-VAL
+;
+
+: CTR-FIELD-COUNT ( ctr-term -- count )
+  CTR-FIELDS-ARRAY @
+;
+
+: CTR-FIELD ( ctr-term field_index -- field_value )
+  \ Get nth field from CTR term (fields start at index 0)
+  \ Array layout: [count][field0][field1][...]
+  \ Stack: ctr-term field_index
+  SWAP CTR-FIELDS-ARRAY    \ field_index fields_array
+  SWAP 1+ CELLS + @        \ fields_array[field_index + 1]
+;
+
+\ Test CTR functions
+: TEST-CTR ( -- )
+  ." Testing CTR functions..." CR
+
+  \ Create a test CTR with constructor ID 42 and 2 fields
+  HERE 3 CELLS ALLOT    \ Allocate space for count + 2 fields
+  DUP 2 SWAP !          \ Store field count in array[0]
+  DUP CELL+ 100 SWAP !  \ field[1] = 100
+  DUP 2 CELLS + 200 SWAP !  \ field[2] = 200
+
+  \ Create CTR term
+  42 SWAP MAKE-CTR      \ constructor_id=42, fields_array
+
+  \ Test accessors
+  DUP CTR-CONSTRUCTOR-ID ." Constructor ID: " . CR
+  DUP CTR-FIELD-COUNT ." Field count: " . CR
+  DUP 0 CTR-FIELD ." Field 0: " . CR
+  DUP 1 CTR-FIELD ." Field 1: " . CR
+
+  \ Verify values
+  DUP CTR-CONSTRUCTOR-ID 42 = DUP ." CID check: " . CR >R
+  DUP CTR-FIELD-COUNT 2 = DUP ." Count check: " . CR R> AND >R
+  DUP 0 CTR-FIELD 100 = DUP ." Field0 check: " . CR R> AND >R
+  DUP 1 CTR-FIELD 200 = DUP ." Field1 check: " . CR R> AND >R
+  DROP
+  R>  \ Get final result from return stack
+
+  IF ." CTR tests: PASS" CR ELSE ." CTR tests: FAIL" CR THEN
+;
+
 \ Test word
 : TEST-CORE ( -- )
   ." Core module loaded" CR
   ." Tags defined: LAM=" TAG-LAM .
   ." APP=" TAG-APP .
-  ." SUP=" TAG-SUP . CR
+  ." SUP=" TAG-SUP .
+  ." CTR=" TAG-CTR . CR
   TEST-PACK-UNPACK
+  TEST-CTR
 ;
