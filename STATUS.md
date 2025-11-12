@@ -79,7 +79,7 @@ Current performance on simple programs exceeds 100 MIPS due to Forth's efficienc
 ## Minor Issues to Resolve
 
 - File loading has buffer management issues (INPUT-BUF conflicts) - FIXED: Changed to static buffer
-- Some parser crashes under certain conditions - FIXED: Resolved heap allocation issues
+- Parser crashes on pattern matching due to memory access issues - INVESTIGATING: Heap allocation returns invalid addresses for CREATE ALLOT buffers
 - Test suite runner needs final integration - Pattern matching tests added
 
 These are minor bugs in an otherwise complete implementation.

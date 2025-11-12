@@ -9,6 +9,10 @@
   CREATE INPUT-BUF MAX-INPUT-LEN ALLOT
   VARIABLE INPUT-LEN
   VARIABLE INPUT-POS
+
+\ Static buffer for constructor pattern cases (8 cells)
+  8 CONSTANT CASE-BUFFER-SIZE
+  CREATE CASE-BUFFER CASE-BUFFER-SIZE CELLS ALLOT
   VARIABLE TOKEN-POS
   0 INPUT-POS !
   0 TOKEN-POS !
@@ -776,8 +780,8 @@ DEFER PARSE-TERM
   \ For simplicity, support up to 8 cases max
   \ Each case: [tag, num-fields, bind-id1, bind-id2, ..., body]
 
-  \ Allocate space for case array (estimate: 32 cells for all cases)
-  32 ALLOC >R ( scrut-loc | R: case-array-start )
+    \ Allocate space for case array (8 cells for simple cases)
+    8 ALLOC >R ( scrut-loc | R: case-array-start )
 
   \ Case counter
   0 ( scrut-loc case-count | R: case-array-start )
@@ -799,9 +803,9 @@ DEFER PARSE-TERM
      OVER C@ ( scrut-loc case-count write-ptr addr len tag-id | R: case-array-start )
      >R 2DROP ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
 
-     \ Store tag in case array
-     DUP R@ SWAP ! ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
-     CELL+ ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+      \ Store tag in case array
+      R@ ! ( scrut-loc case-count write-ptr | R: case-array-start tag-id )
+      CELL+ ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
 
     \ Check for field bindings: '{' or ':'
     NEXT-TOKEN ( scrut-loc case-count write-ptr' type addr len | R: case-array-start tag-id )
@@ -855,8 +859,8 @@ DEFER PARSE-TERM
         THEN
       0= UNTIL
 
-       \ Store num-fields in case array at write-ptr[1]
-       OVER CELL+ OVER SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
+        \ Store num-fields in case array at write-ptr (which is case-start + CELL)
+        OVER OVER SWAP ! ( scrut-loc case-count write-ptr' num-fields | R: case-array-start tag-id )
 
        \ Advance write-ptr to body position: case-start + (2 + num-fields)*CELL
        \ write-ptr' = case-start + 1*CELL, so add (1 + num-fields)*CELL
@@ -873,9 +877,9 @@ DEFER PARSE-TERM
       THEN
       2DROP DROP ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
 
-      \ Store num-fields = 0
-      DUP CELL+ 0 SWAP ! ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
-      2 CELLS + ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
+      \ Store num-fields = 0 at write-ptr'
+      DUP 0 SWAP ! ( scrut-loc case-count write-ptr' | R: case-array-start tag-id )
+      CELL+ ( scrut-loc case-count write-ptr'' | R: case-array-start tag-id )
       NEXT-TOKEN DROP 2DROP \ Consume ':'
     THEN
 

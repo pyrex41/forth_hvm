@@ -1,8 +1,7 @@
 \ heap.fs - Heap management and garbage collection
 
-\ Heap buffer (128 cells = 1024 bytes)
-128 CONSTANT HEAP-SIZE
-CREATE DUMMY HERE 1000 ALLOT DROP
+\ Heap buffer (32 cells = 256 bytes)
+32 CONSTANT HEAP-SIZE
 CREATE HEAP HEAP-SIZE CELLS ALLOT
 
 \ Heap pointer and limit
@@ -32,7 +31,7 @@ HEAP HEAP-PTR !
 
   CELLS                          \ convert to bytes
   HEAP-PTR @ TUCK                \ bytes ptr bytes ptr
-  + DUP HEAP-END >= IF           \ bytes ptr new-ptr
+  + DUP HEAP-END > IF            \ bytes ptr new-ptr
     \ No wraparound - error
     DROP DROP 0
     S" ALLOC: heap full" RUNTIME-ERROR
